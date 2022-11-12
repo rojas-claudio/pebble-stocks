@@ -1,0 +1,96 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        },
+        {
+            "name": "Pebble SDK (Basalt)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "\\wsl.localhost/Ubuntu/home/claudio/.pebble-sdk/SDKs/4.3/sdk-core/pebble/basalt/include/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "\\wsl.localhost/Ubuntu/home/claudio/pebble-dev/pebble-sdk-4.6-rc2-linux64/arm-cs-tools/bin/arm-none-eabi-gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "Pebble SDK (Aplite)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "\\wsl.localhost/Ubuntu/home/claudio/.pebble-sdk/SDKs/4.3/sdk-core/pebble/aplite/include/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "\\wsl.localhost/Ubuntu/home/claudio/pebble-dev/pebble-sdk-4.6-rc2-linux64/arm-cs-tools/bin/arm-none-eabi-gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "Pebble SDK (Chalk)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "\\wsl.localhost/Ubuntu/home/claudio/.pebble-sdk/SDKs/4.3/sdk-core/pebble/chalk/include/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "\\wsl.localhost/Ubuntu/home/claudio/pebble-dev/pebble-sdk-4.6-rc2-linux64/arm-cs-tools/bin/arm-none-eabi-gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "Pebble SDK (Diorite)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "\\wsl.localhost/Ubuntu/home/claudio/.pebble-sdk/SDKs/4.3/sdk-core/pebble/diorite/include/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "\\wsl.localhost/Ubuntu/home/claudio/pebble-dev/pebble-sdk-4.6-rc2-linux64/arm-cs-tools/bin/arm-none-eabi-gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "Pebble SDK (Emery)",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "\\wsl.localhost/Ubuntu/home/claudio/.pebble-sdk/SDKs/4.3/sdk-core/pebble/emery/include/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "\\wsl.localhost/Ubuntu/home/claudio/pebble-dev/pebble-sdk-4.6-rc2-linux64/arm-cs-tools/bin/arm-none-eabi-gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++11",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}

@@ -1,0 +1,27 @@
+[
+    {
+      "type": "heading",
+      "defaultValue": "Pebble Flights"
+    },
+    {
+      "type": "text",
+      "defaultValue": "Welcome to Flights! Here, you'll be able to add flights to your Pebble, as well as configure other settings such as Timeline Pins."
+    },
+    {
+      "type": "section",
+      "items": [
+        {
+          "type": "heading",
+          "id": "main-heading",
+          "defaultValue": "Lets get you started. To add an upcoming flight to your Pebble, enter the flight's IATA code to the text input below.",
+          "size": 0.5
+        },
+        {
+           "type": "input",
+           "messageKey": "IATA",
+           "defaultValue": "AB1234",
+           "label": "Flight Number"
+        }
+      ]
+    }
+]
