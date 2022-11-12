@@ -18,20 +18,6 @@ Pebble.addEventListener('webviewclsoed', function(e) {
 
 Pebble.addEventListener('ready', function () {
     console.log("Ready!");
-    // var message = {
-    //     "Symbol": "",
-    //     "Open": "",
-    //     "High": "",
-    //     "Low": "",
-    //     "Price": "",
-    //     "Volume": "",
-    //     "PrevClose": "",
-    //     "Change": "",
-    //     "ChangePercent": "",
-    //     "Ready": 0,
-    //     "TotalTickers": totalTickers
-    // };
-    // MessageQueue.sendAppMessage(message, onSuccess, onFailure);
     fetch();
 });
 
