@@ -12,6 +12,9 @@
   },
   "pebble": {
     "displayName": "Stocks",
+    "capabilities": [
+      "configurable"
+    ],
     "uuid": "e034337e-d19b-4c76-ba9d-abe940b68546",
     "sdkVersion": "3",
     "enableMultiJS": true,
@@ -34,11 +37,13 @@
       "PrevClose",
       "Change",
       "ChangePercent",
-      "Ready",
-      "TotalTickers"
+      "TotalTickers",
+      "RequestData",
+      "Tickers"
     ],
     "resources": {
       "media": []
     }
-  }
+  },
+  "devDependencies": {}
 }

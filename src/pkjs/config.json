@@ -1,11 +1,11 @@
 [
     {
       "type": "heading",
-      "defaultValue": "Pebble Flights"
+      "defaultValue": "Pebble Stocks"
     },
     {
       "type": "text",
-      "defaultValue": "Welcome to Flights! Here, you'll be able to add flights to your Pebble, as well as configure other settings such as Timeline Pins."
+      "defaultValue": "Welcome to Stocks! Here, you'll be able to add tickers to your Pebble's watchlist, as well as configure other settings such as Timeline Pins."
     },
     {
       "type": "section",
@@ -13,15 +13,19 @@
         {
           "type": "heading",
           "id": "main-heading",
-          "defaultValue": "Lets get you started. To add an upcoming flight to your Pebble, enter the flight's IATA code to the text input below.",
+          "defaultValue": "Lets get you started. To add a ticker to your Pebble, enter the ticker symbol(s) to the text input below, separated by a comma and a space.\nDue to API limits, these changes will take effect the next time you open the app.",
           "size": 0.5
         },
         {
            "type": "input",
-           "messageKey": "IATA",
-           "defaultValue": "AB1234",
-           "label": "Flight Number"
+           "messageKey": "Tickers",
+           "defaultValue": "AAPL, MSFT, AMZN, WEBS",
+           "label": "Tickers"
         }
       ]
+    },
+    {
+      "type": "submit",
+      "defaultValue": "Save Settings"
     }
 ]
