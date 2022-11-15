@@ -9,6 +9,7 @@
 */
 #include <pebble.h>
 #include <math.h>
+#include <string.h>
 
 #define MAX_TICKER_LENGTH 5
 #define TICKER_CELL_MIN_HEIGHT PBL_IF_ROUND_ELSE(49, 45)
@@ -48,34 +49,51 @@ static void select_click_callback(MenuLayer *s_menu_layer, MenuIndex *cell_index
 
 static void detail_window_load(Window *window) {
   int id = total - (selected - 1) - 2;
+  // char buffer[16];
 
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
+  // GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD); Draw text using graphics_draw_text
+  // graphics_context_set_text_color(ctx, GColorWhite);
+
+
   TextLayer *ticker_label = text_layer_create(GRect(5, -3, bounds.size.w, bounds.size.h));
-  TextLayer *price_label = text_layer_create(GRect(0, 27, bounds.size.w, bounds.size.h));
-  TextLayer *change_label = text_layer_create(GRect(0, 50, bounds.size.w, bounds.size.h));
+  TextLayer *price_label = text_layer_create(GRect(0, 40, bounds.size.w, bounds.size.h));
+  TextLayer *change_label = text_layer_create(GRect(0, 60, bounds.size.w, bounds.size.h));
+#if(PBL_ROUND)
+  ticker_label = text_layer_create(GRect(0, 7, bounds.size.w, bounds.size.h));
+#endif
 
   text_layer_set_text(ticker_label, tickers[id]);
   text_layer_set_font(ticker_label, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  text_layer_set_text_alignment(ticker_label, GTextAlignmentLeft);
   text_layer_set_background_color(ticker_label, GColorBlack);
   text_layer_set_text_color(ticker_label, GColorWhite);
-  text_layer_set_text_alignment(ticker_label, GTextAlignmentLeft);
+#if(PBL_ROUND)
+  text_layer_set_text_alignment(ticker_label, GTextAlignmentCenter);
+#endif
 
   text_layer_set_text(price_label, price[id]);
-  text_layer_set_font(price_label, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_font(price_label, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_background_color(price_label, GColorBlack);
   text_layer_set_text_color(price_label, GColorWhite);
   text_layer_set_text_alignment(price_label, GTextAlignmentLeft);
+#if(PBL_ROUND)
+  text_layer_set_text_alignment(price_label, GTextAlignmentCenter);
+#endif
 
-  text_layer_set_text(change_label, change[id]);
-  text_layer_set_font(change_label, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+  text_layer_set_text(change_label, changePercent[id]);
+  text_layer_set_font(change_label, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_background_color(change_label, GColorBlack);
   text_layer_set_text_color(change_label, GColorWhite);
   text_layer_set_text_alignment(change_label, GTextAlignmentLeft);
+#if(PBL_ROUND)
+  text_layer_set_text_alignment(change_label, GTextAlignmentCenter);
+#endif
 
   layer_add_child(window_get_root_layer(s_detail_window), text_layer_get_layer(ticker_label));
-  // layer_add_child(window_get_root_layer(s_detail_window), text_layer_get_layer(price_label));
-  // layer_add_child(window_get_root_layer(s_detail_window), text_layer_get_layer(change_label));
+  layer_add_child(window_get_root_layer(s_detail_window), text_layer_get_layer(price_label));
+  layer_add_child(window_get_root_layer(s_detail_window), text_layer_get_layer(change_label));
 
   window_set_background_color(s_detail_window, GColorBlack);
 }
@@ -187,6 +205,8 @@ static void window_load(Window *window) {
   
   s_menu_layer = menu_layer_create(bounds);
   menu_layer_set_click_config_onto_window(s_menu_layer, window);
+  menu_layer_set_normal_colors(s_menu_layer, GColorBlack, GColorWhite);
+  menu_layer_set_highlight_colors(s_menu_layer, GColorBlack, GColorWhite);
 #if defined(PBL_COLOR)
   menu_layer_set_normal_colors(s_menu_layer, GColorBlack, GColorWhite);
   menu_layer_set_highlight_colors(s_menu_layer, GColorBlack, GColorWhite);
