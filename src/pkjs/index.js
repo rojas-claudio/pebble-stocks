@@ -41,29 +41,40 @@ Pebble.addEventListener('appmessage', function (e) {
 
 function fetchWatchlist() {
     //create dict to send to watch
-    let message = {};
+    let dict = {
+        "Symbol": "",
+        "Open": "",
+        "High": "",
+        "Low": "",
+        "Price": "",
+        "CloseHistory": [],
+        "PrevClose": "",
+        "Change": "",
+        "ChangePercent": "",
+        "TotalTickers": 0
+    };
 
     for (let i = 0; i < totalTickers; i++) {
+
         //get basic ticker data
         const ticker = tickers[i];
-        const url = "https://finnhub.io/api/v1/quote?symbol=" + ticker + "&token=" + key;
-        const req = new XMLHttpRequest();
+        console.log("Fetching data for " + ticker);
+        let url = "https://finnhub.io/api/v1/quote?symbol=" + ticker + "&token=" + key;
+        let req = new XMLHttpRequest();
         req.open('GET', url, true);
         req.onload = function (e) {
             if (req.status == 200) {
                 const data = JSON.parse(req.responseText);
-                //update dict with ticker data
-                message = {
-                    "Symbol": ticker,
-                    "Open": data["o"].toString(),
-                    "High": data["h"].toString(),
-                    "Low": data["l"].toString(),
-                    "Price": data["c"].toString(),
-                    "PrevClose": data["pc"].toString(),
-                    "Change": data["d"].toString(),
-                    "ChangePercent": data["dp"].toString(),
-                    "TotalTickers": totalTickers
-                };
+                //add ticker data to dict 
+                dict.Symbol = ticker;
+                dict.Open = data["o"].toString();
+                dict.High = data["h"].toString();
+                dict.Low = data["l"].toString();
+                dict.Price = data["c"].toString();
+                dict.PrevClose = data["pc"].toString();
+                dict.Change = data["d"].toString();
+                dict.ChangePercent = data["dp"].toString() + "%";
+                dict.TotalTickers = totalTickers;
             }     
         } 
         req.send(); 
@@ -80,15 +91,14 @@ function fetchWatchlist() {
         req.onload = function (e) {
             if (req.status == 200) {
                 const data = JSON.parse(req.responseText);
-                message.push({
-                    key: "CloseHistory",
-                    value: data["c"]
-                });
+                //add graph data to dict
+                dict.CloseHistory = data["c"];
             }     
         }
         req.send();
 
-        MessageQueue.Pebble(message, onSuccess, onFailure);
+        console.log(dict.toString());
+        MessageQueue.sendAppMessage(dict, onSuccess, onFailure);
     }
 }
 
