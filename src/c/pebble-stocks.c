@@ -3,7 +3,6 @@
     - Add a "refresh" button to the main screen
     - Display detailed stock data upon clicking a ticker
     - Figure out data being sent out of order (relative to array in index.js)
-    - Deal with AV API limitations, data coming in incorrectly upon second/third/etc. request
   TO-DO (NO DEADLINE):
     - Implement graphs for tickers
 */
@@ -32,6 +31,7 @@ static int total = -1;
 
 static int selected;
 
+//watchlist data
 static char tickers[15][MAX_TICKER_LENGTH]; 
 static char open[15][10]; 
 static char high[15][10]; 
@@ -40,6 +40,9 @@ static char price[15][10];
 static char close[15][10]; 
 static char change[15][10]; 
 static char changePercent[15][10]; 
+
+//create an three dimensional array of strings to hold the data
+static char close_week[15][10][10];
 
 static void select_click_callback(MenuLayer *s_menu_layer, MenuIndex *cell_index, void *data) {
   // Get which row
@@ -160,6 +163,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   Tuple *low_tuple = dict_find(iter, MESSAGE_KEY_Low);
   Tuple *price_tuple = dict_find(iter, MESSAGE_KEY_Price);
   Tuple *close_tuple = dict_find(iter, MESSAGE_KEY_PrevClose);
+  Tuple *close_history_tuple = dict_find(iter, MESSAGE_KEY_CloseHistory);
   Tuple *change_tuple = dict_find(iter, MESSAGE_KEY_Change);
   Tuple *change_percent_tuple = dict_find(iter, MESSAGE_KEY_ChangePercent);
   Tuple *total_tuple = dict_find (iter, MESSAGE_KEY_TotalTickers);
@@ -170,6 +174,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   strcpy(low[received], low_tuple->value->cstring);
   strcpy(price[received], price_tuple->value->cstring);
   strcpy(close[received], close_tuple->value->cstring);
+  // strcpy(close_week[received], close_history_tuple->value->cstring);
   strcpy(change[received], change_tuple->value->cstring);
   strcpy(changePercent[received], change_percent_tuple->value->cstring);
   total = total_tuple->value->int32;

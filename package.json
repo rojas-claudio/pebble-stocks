@@ -36,11 +36,12 @@
       "Price",
       "Volume",
       "PrevClose",
+      "CloseHistory",
       "Change",
       "ChangePercent",
       "TotalTickers",
-      "RequestData",
-      "Tickers"
+      "Tickers",
+      "Timestamp"
     ],
     "resources": {
       "media": []
