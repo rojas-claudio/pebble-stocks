@@ -9,6 +9,17 @@ let totalTickers; //to be returned for menu layer construction
 
 let key = "cdond1aad3i3u5goj3agcdond1aad3i3u5goj3b0";
 
+Pebble.addEventListener('ready', function (e) {
+    console.log("Ready!");
+    var configuration = JSON.parse(localStorage.getItem("configuration"));
+    if (configuration) {
+        let str = configuration.Tickers.value;
+        tickers = str.split(", ");
+        totalTickers = tickers.length;
+        fetchWatchlist();
+    }
+});
+
 Pebble.addEventListener('showConfiguration', function(e) {
     Pebble.openURL(clay.generateUrl());
 });
@@ -24,17 +35,6 @@ Pebble.addEventListener('webviewclosed', function(e) {
     tickers = str.split(", ");
     totalTickers = tickers.length;
     //fetchWatchlist();
-});
-
-Pebble.addEventListener('ready', function () {
-    console.log("Ready!");
-    var configuration = JSON.parse(localStorage.getItem("configuration"));
-    if (configuration) {
-        let str = configuration.Tickers.value;
-        tickers = str.split(", ");
-        totalTickers = tickers.length;
-        fetchWatchlist();
-    }
 });
 
 Pebble.addEventListener('appmessage', function (e) {

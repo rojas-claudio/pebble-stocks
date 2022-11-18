@@ -1,21 +1,18 @@
 /*
   TO-DO BEFORE HACKATHON:
-    - Speed up data fetching + add loading screen
+    - Speed up data fetching
     - Tickers being sent in reverse order
     - Implement graphs for tickers
 */
 #include <pebble.h>
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define MAX_TICKER_LENGTH 5
 #define MAX_TICKERS 15
+#define MAX_TICKER_DATA 10
 #define TICKER_CELL_MIN_HEIGHT PBL_IF_ROUND_ELSE(49, 45)
-
-typedef struct TickerItem {
-  // the name displayed for the item
-  char name[MAX_TICKER_LENGTH];
-} TickerItem;
 
 static Window *s_window;
 static Window *s_detail_window;
@@ -24,8 +21,6 @@ static MenuLayer *s_menu_layer;
 static Layer *s_canvas_layer;
 static Layer *s_detail_layer;
 
-static TickerItem *s_ticker_items[10];
-
 static int received = 0;
 static int total = -1;
 
@@ -33,21 +28,23 @@ static int selected;
 
 //watchlist data
 static char tickers[MAX_TICKERS][MAX_TICKER_LENGTH]; 
-static char open[MAX_TICKERS][10]; 
-static char high[MAX_TICKERS][10]; 
-static char low[MAX_TICKERS][10]; 
-static char price[MAX_TICKERS][10];
-static char close[MAX_TICKERS][10]; 
-static char change[MAX_TICKERS][10]; 
-static char changePercent[MAX_TICKERS][32]; 
+static char open[MAX_TICKERS][MAX_TICKER_DATA]; 
+static char high[MAX_TICKERS][MAX_TICKER_DATA]; 
+static char low[MAX_TICKERS][MAX_TICKER_DATA]; 
+static char price[MAX_TICKERS][MAX_TICKER_DATA];
+static char close[MAX_TICKERS][MAX_TICKER_DATA]; 
+static char change[MAX_TICKERS][MAX_TICKER_DATA]; 
+static char changePercent[MAX_TICKERS][MAX_TICKER_DATA]; 
 
 //create a three dimensional array of doubles to hold the data
 // static double close_history[MAX_TICKERS][140];
 
 static void select_click_callback(MenuLayer *s_menu_layer, MenuIndex *cell_index, void *data) {
-  // Get which row
-  selected = cell_index->row;
-  window_stack_push(s_detail_window, true);
+  //if (received != 0) {
+    selected = cell_index->row;
+    window_stack_push(s_detail_window, true);
+  //}
+  
 }
 
 static void s_detail_layer_update_proc(Layer *layer, GContext *ctx) {
@@ -100,21 +97,20 @@ static int16_t get_cell_height_callback(struct MenuLayer *menu_layer, MenuIndex 
 
 static void draw_ticker_cell(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index) {
   int id = total - (cell_index->row - 1) - 2;
-  
-  TickerItem *item = s_ticker_items[id];
 
   GRect bounds = layer_get_bounds(cell_layer);
   GRect text_bounds;
   GTextAlignment alignment = GTextAlignmentLeft;
 
   graphics_draw_rect(ctx, bounds);
-  if (atoi(change[id]) > 0) { //convert change to int and check if it's positive or negative
+
+  if (atof(tickers[id]) > 0) { //convert change to int and check if it's positive or negative
     if(menu_cell_layer_is_highlighted(cell_layer)) { //if positive, set highlight color to green
       graphics_context_set_fill_color(ctx, GColorGreen);
     } else {
       graphics_context_set_fill_color(ctx, GColorBlack);
     }
-  } else if (atoi(change[id]) < 0) { //if negative, set highlight color to red
+  } else if (atof(tickers[id]) < 0) { //if negative, set highlight color to red
     if(menu_cell_layer_is_highlighted(cell_layer)) {
       graphics_context_set_fill_color(ctx, GColorRed);
     } else {
@@ -234,15 +230,15 @@ static void inbox_dropped_handler(AppMessageResult reason, void *context){
 static void window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-
   s_menu_layer = menu_layer_create(bounds);
-  menu_layer_set_click_config_onto_window(s_menu_layer, window);
-  menu_layer_set_normal_colors(s_menu_layer, GColorBlack, GColorWhite);
-  menu_layer_set_highlight_colors(s_menu_layer, GColorBlack, GColorWhite);
+
 #if defined(PBL_COLOR)
   menu_layer_set_normal_colors(s_menu_layer, GColorBlack, GColorWhite);
   menu_layer_set_highlight_colors(s_menu_layer, GColorBlack, GColorWhite);
 #endif
+  menu_layer_set_click_config_onto_window(s_menu_layer, window);
+  menu_layer_set_normal_colors(s_menu_layer, GColorBlack, GColorWhite);
+  menu_layer_set_highlight_colors(s_menu_layer, GColorBlack, GColorWhite);
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
       .get_num_rows = get_num_rows_callback,
       .draw_row = draw_row_callback,
@@ -269,7 +265,7 @@ static void window_unload() {
   menu_layer_destroy(s_menu_layer);
   window_destroy(s_window);
   window_destroy(s_detail_window);
-}
+} 
 
 static void init() {
   s_window = window_create();
