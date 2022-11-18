@@ -2,11 +2,12 @@ const Clay = require('pebble-clay');
 const clayConfig = require('./config.json');
 const clay = new Clay(clayConfig, null, { autoHandleEvents: false });
 const MessageQueue = require('message-queue-pebble');
+const _ = require('lodash');
 
 let tickers = []; //set default tickers in case user doesn't set any
 let totalTickers; //to be returned for menu layer construction
 
-const key = "cdond1aad3i3u5goj3agcdond1aad3i3u5goj3b0";
+let key = "cdond1aad3i3u5goj3agcdond1aad3i3u5goj3b0";
 
 Pebble.addEventListener('showConfiguration', function(e) {
     Pebble.openURL(clay.generateUrl());
@@ -19,9 +20,10 @@ Pebble.addEventListener('webviewclosed', function(e) {
     let configuration = clay.getSettings(e.response, false);
     localStorage.setItem("configuration", JSON.stringify(configuration));
     let str = configuration.Tickers.value;
+    key = configuration.APIKey.value;
     tickers = str.split(", ");
     totalTickers = tickers.length;
-    //fetchWatchlist(); //figure out full refresh on config change
+    //fetchWatchlist();
 });
 
 Pebble.addEventListener('ready', function () {
@@ -40,6 +42,8 @@ Pebble.addEventListener('appmessage', function (e) {
 });
 
 function fetchWatchlist() {
+    // let once = true;
+
     for (let i = 0; i < totalTickers; i++) {
         let dict = {
             "Symbol": "",
@@ -72,7 +76,6 @@ function fetchWatchlist() {
                 dict.PrevClose = formatStockPrice(data.pc).toString();
                 dict.Change = formatStockPrice(data.d).toString();
                 dict.ChangePercent = formatStockPrice(data.dp).toString() + "%";
-                dict.TotalTickers = totalTickers;
             }     
         }
         req.send();
@@ -90,8 +93,8 @@ function fetchWatchlist() {
             if (req.status == 200) {
                 let data = JSON.parse(req.responseText);
                 
-                let temp = data.c;
-                let closeHistory = []
+                let temp = _.values(data.c);
+                let closeHistory = [];
 
                 for (let i = 0; i < temp.length; i++) {
                     closeHistory.push(Number(temp[i]).toFixed(2));
@@ -105,6 +108,8 @@ function fetchWatchlist() {
         }
         req.send();
 
+        //send data to watch
+        console.log(`Sending ${ticker} data...`);
         MessageQueue.sendAppMessage(dict, onSuccess, onFailure);
     }
 }
@@ -130,5 +135,4 @@ function onFailure(data, error){
     console.log('error');
     console.log(JSON.stringify(data));
     console.log(JSON.stringify(error));
-
 }

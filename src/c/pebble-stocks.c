@@ -9,6 +9,7 @@
 #include <string.h>
 
 #define MAX_TICKER_LENGTH 5
+#define MAX_TICKERS 15
 #define TICKER_CELL_MIN_HEIGHT PBL_IF_ROUND_ELSE(49, 45)
 
 typedef struct TickerItem {
@@ -31,17 +32,17 @@ static int total = -1;
 static int selected;
 
 //watchlist data
-static char tickers[15][MAX_TICKER_LENGTH]; 
-static char open[15][10]; 
-static char high[15][10]; 
-static char low[15][10]; 
-static char price[15][10];
-static char close[15][10]; 
-static char change[15][10]; 
-static char changePercent[15][32]; 
+static char tickers[MAX_TICKERS][MAX_TICKER_LENGTH]; 
+static char open[MAX_TICKERS][10]; 
+static char high[MAX_TICKERS][10]; 
+static char low[MAX_TICKERS][10]; 
+static char price[MAX_TICKERS][10];
+static char close[MAX_TICKERS][10]; 
+static char change[MAX_TICKERS][10]; 
+static char changePercent[MAX_TICKERS][32]; 
 
 //create a three dimensional array of doubles to hold the data
-static double close_history[15][140];
+// static double close_history[MAX_TICKERS][140];
 
 static void select_click_callback(MenuLayer *s_menu_layer, MenuIndex *cell_index, void *data) {
   // Get which row
@@ -90,7 +91,7 @@ static void detail_window_load(Window *window) {
 }
 
 static uint16_t get_num_rows_callback(MenuLayer *s_menu_layer, uint16_t section_index, void *context) {
-  return received;
+  return total;
 }
 
 static int16_t get_cell_height_callback(struct MenuLayer *menu_layer, MenuIndex *cell_index, void *context) {
@@ -99,7 +100,7 @@ static int16_t get_cell_height_callback(struct MenuLayer *menu_layer, MenuIndex 
 
 static void draw_ticker_cell(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index) {
   int id = total - (cell_index->row - 1) - 2;
-
+  
   TickerItem *item = s_ticker_items[id];
 
   GRect bounds = layer_get_bounds(cell_layer);
@@ -136,6 +137,8 @@ static void draw_ticker_cell(GContext *ctx, const Layer *cell_layer, MenuIndex *
   if (menu_cell_layer_is_highlighted(cell_layer)) {
     graphics_context_set_stroke_color(ctx, GColorWhite);
   }
+
+  received = 0; //once everything has been drawn, reset the counter
 }
 
 static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context) {
@@ -144,7 +147,25 @@ static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex 
 
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Message received!");
-  
+
+  // if (received == 0) { //if no data has been received yet, clear all arrays for new batch
+  //   APP_LOG(APP_LOG_LEVEL_DEBUG, "Clearing arrays");
+  //   memset(tickers, 0, sizeof(tickers[0][0]) * MAX_TICKERS * MAX_TICKER_LENGTH);
+  //   memset(open, 0, sizeof(open[0][0]) * MAX_TICKERS * 10);
+  //   memset(high, 0, sizeof(high[0][0]) * MAX_TICKERS * 10);
+  //   memset(low, 0, sizeof(low[0][0]) * MAX_TICKERS * 10);
+  //   memset(price, 0, sizeof(price[0][0]) * MAX_TICKERS * 10);
+  //   memset(close, 0, sizeof(close[0][0]) * MAX_TICKERS * 10);
+  //   memset(change, 0, sizeof(change[0][0]) * MAX_TICKERS * 10);
+  //   memset(changePercent, 0, sizeof(changePercent[0][0]) * MAX_TICKERS * 32);
+  //   // memset(close_history, 0, sizeof(close_history[0][0]) * MAX_TICKERS * 140);
+  // }
+
+  Tuple *total_tuple = dict_find (iter, MESSAGE_KEY_TotalTickers);
+  if (total_tuple) {
+    total = total_tuple->value->int32;
+  }
+
   Tuple *symbol_tuple = dict_find(iter, MESSAGE_KEY_Symbol);
   if (symbol_tuple) {
     strcpy(tickers[received], symbol_tuple->value->cstring);
@@ -176,11 +197,13 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
     strcpy(close[received], close_tuple->value->cstring);
   }
   
-  Tuple *close_history_tuple = dict_find(iter, MESSAGE_KEY_CloseHistory);
-  if (close_history_tuple) {
-    // memcpy(close_history[received], close_history_tuple->value->data, sizeof(close_history));
-    // persist_write_data(MESSAGE_KEY_CloseHistory, close_history, sizeof(close_history));
-  }
+  // Tuple *close_history_tuple = dict_find(iter, MESSAGE_KEY_CloseHistory);
+  // if (close_history_tuple) {
+  //   //Write received data to close_history array
+  //   memcpy(close_history[received], close_history_tuple->value->data, close_history_tuple->length);
+  //   //Log for safe measure
+  //   APP_LOG(APP_LOG_LEVEL_DEBUG, "Close history %i received", (int)close_history[received][0]);
+  // }
   
   Tuple *change_tuple = dict_find(iter, MESSAGE_KEY_Change);
   if (change_tuple) {
@@ -191,22 +214,17 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   if (change_percent_tuple) {
     strcpy(changePercent[received], change_percent_tuple->value->cstring);
   }
-
-  Tuple *total_tuple = dict_find (iter, MESSAGE_KEY_TotalTickers);
-  if (total_tuple) {
-    total = total_tuple->value->int32;
-  }
-
+  
   received++;
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Received %d of %d", received, total);
-  if (received > total) {
-    received = 1; //restart counter once new batch of data is received
-  }
   if (received == total) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Reloading menu layer");
+    layer_remove_from_parent(text_layer_get_layer(s_text_layer));
+    layer_add_child(window_get_root_layer(s_window), menu_layer_get_layer(s_menu_layer));
+    menu_layer_set_click_config_onto_window(s_menu_layer, s_window);
     menu_layer_reload_data(s_menu_layer);
   }
-} 
+}
 
 static void inbox_dropped_handler(AppMessageResult reason, void *context){
   //handle failed message
@@ -216,7 +234,7 @@ static void inbox_dropped_handler(AppMessageResult reason, void *context){
 static void window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-  
+
   s_menu_layer = menu_layer_create(bounds);
   menu_layer_set_click_config_onto_window(s_menu_layer, window);
   menu_layer_set_normal_colors(s_menu_layer, GColorBlack, GColorWhite);
@@ -225,16 +243,24 @@ static void window_load(Window *window) {
   menu_layer_set_normal_colors(s_menu_layer, GColorBlack, GColorWhite);
   menu_layer_set_highlight_colors(s_menu_layer, GColorBlack, GColorWhite);
 #endif
-  
-  menu_layer_set_click_config_onto_window(s_menu_layer, window);
-
   menu_layer_set_callbacks(s_menu_layer, NULL, (MenuLayerCallbacks) {
       .get_num_rows = get_num_rows_callback,
       .draw_row = draw_row_callback,
       .get_cell_height = get_cell_height_callback,
       .select_click = select_click_callback,
   });
-  layer_add_child(window_layer, menu_layer_get_layer(s_menu_layer));
+
+  if (received == 0) {
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Drawing no data message");
+    //create a text layer at the origin and span the entire screen
+    s_text_layer = text_layer_create(GRect(0, 0, bounds.size.w, bounds.size.h));
+    text_layer_set_text(s_text_layer, "Loading...\n\n\n\nMake sure you have added tickers to your watchlist in the Pebble app.");
+    text_layer_set_background_color(s_text_layer, GColorBlack);
+    text_layer_set_text_color(s_text_layer, GColorWhite);
+    text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+    text_layer_set_text_alignment(s_text_layer, GTextAlignmentCenter);
+    layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_text_layer));
+  }
 }
 
 static void window_unload() {
