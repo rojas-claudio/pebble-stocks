@@ -1,10 +1,7 @@
 /*
   TO-DO BEFORE HACKATHON:
-    - Add a "refresh" button to the main screen
-    - Display detailed stock data upon clicking a ticker
-    - Figure out data being sent out of order (relative to array in index.js)
-    - Add validation for received data
-  TO-DO (NO DEADLINE):
+    - Speed up data fetching + add loading screen
+    - Tickers being sent in reverse order
     - Implement graphs for tickers
 */
 #include <pebble.h>
@@ -41,10 +38,10 @@ static char low[15][10];
 static char price[15][10];
 static char close[15][10]; 
 static char change[15][10]; 
-static char changePercent[15][10]; 
+static char changePercent[15][32]; 
 
 //create a three dimensional array of doubles to hold the data
-static double close_history[150];
+static double close_history[15][140];
 
 static void select_click_callback(MenuLayer *s_menu_layer, MenuIndex *cell_index, void *data) {
   // Get which row
@@ -59,17 +56,26 @@ static void s_detail_layer_update_proc(Layer *layer, GContext *ctx) {
   GFont gothic_small = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
 
   graphics_context_set_text_color(ctx, GColorWhite);
+  graphics_context_set_stroke_color(ctx, GColorWhite);
+  graphics_context_set_stroke_width(ctx, 2);
 
+#if(!PBL_ROUND)
   graphics_draw_text(ctx, tickers[id], gothic_large, GRect(5, -3, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
   graphics_draw_text(ctx, price[id], gothic_small, GRect(5, 27, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
   graphics_draw_text(ctx, changePercent[id], gothic_small, GRect(5, 42, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+#endif
 #if(PBL_ROUND)
   graphics_draw_text(ctx, tickers[id], gothic_large, GRect(0, 7, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, price[id], gothic_small, GRect(5, 40, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, changePercent[id], gothic_small, GRect(5, 60, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
-#endif
+  graphics_draw_text(ctx, price[id], gothic_small, GRect(0, 40, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+  graphics_draw_text(ctx, changePercent[id], gothic_small, GRect(0, 60, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+#endif 
 
-  
+  // int offset = 10;
+  // graphics_draw_line(ctx, GPoint(bounds.origin.x, bounds.size.h - offset), GPoint(bounds.size.w, bounds.size.h - offset));
+  // for (int i = 0; i < 139; i++) {
+  //   graphics_context_set_stroke_color(ctx, GColorWhite);
+  //   graphics_draw_line(ctx, GPoint(bounds.origin.x + i, close_history[id][i]-10), GPoint(bounds.origin.x + i + 1, close_history[id][i + 1]-10));
+  // }
 }
 
 static void detail_window_load(Window *window) {
@@ -140,29 +146,59 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Message received!");
   
   Tuple *symbol_tuple = dict_find(iter, MESSAGE_KEY_Symbol);
-  Tuple *open_tuple = dict_find(iter, MESSAGE_KEY_Open);
-  Tuple *high_tuple = dict_find(iter, MESSAGE_KEY_High);
-  Tuple *low_tuple = dict_find(iter, MESSAGE_KEY_Low);
-  Tuple *price_tuple = dict_find(iter, MESSAGE_KEY_Price);
-  Tuple *close_tuple = dict_find(iter, MESSAGE_KEY_PrevClose);
-  Tuple *close_history_tuple = dict_find(iter, MESSAGE_KEY_CloseHistory);
-  Tuple *change_tuple = dict_find(iter, MESSAGE_KEY_Change);
-  Tuple *change_percent_tuple = dict_find(iter, MESSAGE_KEY_ChangePercent);
-  Tuple *total_tuple = dict_find (iter, MESSAGE_KEY_TotalTickers);
+  if (symbol_tuple) {
+    strcpy(tickers[received], symbol_tuple->value->cstring);
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "Symbol %s received", tickers[received]);
+  }
 
-  strcpy(tickers[received], symbol_tuple->value->cstring);
-  strcpy(open[received], open_tuple->value->cstring);
-  strcpy(high[received], high_tuple->value->cstring);
-  strcpy(low[received], low_tuple->value->cstring);
-  strcpy(price[received], price_tuple->value->cstring);
-  strcpy(close[received], close_tuple->value->cstring);
-  //copy close history array to closeHistory array 
-  // memcpy(close_history, close_history_tuple->value->data, 150);
-  strcpy(change[received], change_tuple->value->cstring);
-  strcpy(changePercent[received], change_percent_tuple->value->cstring);
-  total = total_tuple->value->int32;
+  Tuple *open_tuple = dict_find(iter, MESSAGE_KEY_Open);
+  if (open_tuple) {
+    strcpy(open[received], open_tuple->value->cstring);
+  }
+  
+  Tuple *high_tuple = dict_find(iter, MESSAGE_KEY_High);
+  if (high_tuple) {
+    strcpy(high[received], high_tuple->value->cstring);
+  }
+  
+  Tuple *low_tuple = dict_find(iter, MESSAGE_KEY_Low);
+  if (low_tuple) {
+    strcpy(low[received], low_tuple->value->cstring);
+  }
+
+  Tuple *price_tuple = dict_find(iter, MESSAGE_KEY_Price);
+  if (price_tuple) {
+    strcpy(price[received], price_tuple->value->cstring);
+  }
+
+  Tuple *close_tuple = dict_find(iter, MESSAGE_KEY_PrevClose);
+  if (close_tuple) {
+    strcpy(close[received], close_tuple->value->cstring);
+  }
+  
+  Tuple *close_history_tuple = dict_find(iter, MESSAGE_KEY_CloseHistory);
+  if (close_history_tuple) {
+    // memcpy(close_history[received], close_history_tuple->value->data, sizeof(close_history));
+    // persist_write_data(MESSAGE_KEY_CloseHistory, close_history, sizeof(close_history));
+  }
+  
+  Tuple *change_tuple = dict_find(iter, MESSAGE_KEY_Change);
+  if (change_tuple) {
+    strcpy(change[received], change_tuple->value->cstring);
+  }
+
+  Tuple *change_percent_tuple = dict_find(iter, MESSAGE_KEY_ChangePercent);
+  if (change_percent_tuple) {
+    strcpy(changePercent[received], change_percent_tuple->value->cstring);
+  }
+
+  Tuple *total_tuple = dict_find (iter, MESSAGE_KEY_TotalTickers);
+  if (total_tuple) {
+    total = total_tuple->value->int32;
+  }
 
   received++;
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Received %d of %d", received, total);
   if (received > total) {
     received = 1; //restart counter once new batch of data is received
   }
