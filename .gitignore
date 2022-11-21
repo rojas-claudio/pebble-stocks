@@ -129,3 +129,6 @@ dist
 build/
 node_modules/
 .vscode/
+
+store_assets/
+screenshots/

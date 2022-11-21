@@ -13,7 +13,7 @@
         {
           "type": "heading",
           "id": "main-heading",
-          "defaultValue": "Lets get you started. To add a ticker to your Pebble, enter the ticker symbol(s) to the text input below, separated by a comma and a space.\nDue to API limits, these changes will take effect the next time you open the app.\n\nYou will also need to provide an API key. It's free, and you can grab one from https://finnhub.io/register.",
+          "defaultValue": "Lets get you started. To add a ticker to your Pebble, enter the ticker symbol(s) to the text input below, separated by a comma and a space. You can store a maximum of 15 tickers.\nDue to API limits, these changes will take effect the next time you open the app.\n\nYou will also need to provide an API key. It's free, and you can grab one from https://finnhub.io/register.",
           "size": 0.5
         },
         {
@@ -25,7 +25,7 @@
         {
            "type": "input",
            "messageKey": "Tickers",
-           "defaultValue": "AAPL, MSFT, AMZN, WEBS",
+           "defaultValue": "AAPL, MSFT, AMZN, META",
            "label": "Tickers"
         }
       ]

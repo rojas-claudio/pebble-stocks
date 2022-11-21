@@ -1,9 +1,3 @@
-/*
-  TO-DO BEFORE HACKATHON:
-    - Speed up data fetching
-    - Tickers being sent in reverse order
-    - Implement graphs for tickers
-*/
 #include <pebble.h>
 #include <math.h>
 #include <string.h>
@@ -12,6 +6,7 @@
 #define MAX_TICKER_LENGTH 5
 #define MAX_TICKERS 15
 #define MAX_TICKER_DATA 10
+#define MAX_HIS_DATA 140
 #define TICKER_CELL_MIN_HEIGHT PBL_IF_ROUND_ELSE(49, 45)
 
 static Window *s_window;
@@ -33,11 +28,11 @@ static char high[MAX_TICKERS][MAX_TICKER_DATA];
 static char low[MAX_TICKERS][MAX_TICKER_DATA]; 
 static char price[MAX_TICKERS][MAX_TICKER_DATA];
 static char close[MAX_TICKERS][MAX_TICKER_DATA]; 
-static char change[MAX_TICKERS][MAX_TICKER_DATA]; 
+static char change[MAX_TICKERS][MAX_TICKER_DATA];
+static int32_t change_int[MAX_TICKERS]; 
 static char changePercent[MAX_TICKERS][MAX_TICKER_DATA]; 
 
-//create a three dimensional array of doubles to hold the data
-// static double close_history[MAX_TICKERS][140];
+static uint8_t close_history[MAX_TICKERS][MAX_HIS_DATA]; 
 
 static void select_click_callback(MenuLayer *s_menu_layer, MenuIndex *cell_index, void *data) {
   //if (received != 0) {
@@ -49,17 +44,22 @@ static void select_click_callback(MenuLayer *s_menu_layer, MenuIndex *cell_index
 
 static void s_detail_layer_update_proc(Layer *layer, GContext *ctx) {
   int id = total - (selected - 1) - 2;
+  char buffer[16];
+
+  strcpy(buffer, price[id]);
+  strcat(buffer, " (");
+  strcat(buffer, change[id]);
+  strcat(buffer, ")");
+
   GRect bounds = layer_get_bounds(layer);
   GFont gothic_large = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
   GFont gothic_small = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
 
   graphics_context_set_text_color(ctx, GColorWhite);
-  graphics_context_set_stroke_color(ctx, GColorWhite);
-  graphics_context_set_stroke_width(ctx, 2);
 
 #if(!PBL_ROUND)
   graphics_draw_text(ctx, tickers[id], gothic_large, GRect(5, -3, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
-  graphics_draw_text(ctx, price[id], gothic_small, GRect(5, 27, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
+  graphics_draw_text(ctx, buffer, gothic_small, GRect(5, 27, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
   graphics_draw_text(ctx, changePercent[id], gothic_small, GRect(5, 42, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentLeft, NULL);
 #endif
 #if(PBL_ROUND)
@@ -68,12 +68,25 @@ static void s_detail_layer_update_proc(Layer *layer, GContext *ctx) {
   graphics_draw_text(ctx, changePercent[id], gothic_small, GRect(0, 60, bounds.size.w, bounds.size.h), GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
 #endif 
 
-  // int offset = 10;
-  // graphics_draw_line(ctx, GPoint(bounds.origin.x, bounds.size.h - offset), GPoint(bounds.size.w, bounds.size.h - offset));
-  // for (int i = 0; i < 139; i++) {
-  //   graphics_context_set_stroke_color(ctx, GColorWhite);
-  //   graphics_draw_line(ctx, GPoint(bounds.origin.x + i, close_history[id][i]-10), GPoint(bounds.origin.x + i + 1, close_history[id][i + 1]-10));
-  // }
+#if(!PBL_ROUND)
+  int offset = 3;
+#endif
+#if(PBL_ROUND)
+  int offset = 22;
+  int y_offset = -10;
+#endif
+  for (int i = 0; i < 139; i++) {
+    graphics_context_set_antialiased(ctx, true);
+    graphics_context_set_stroke_width(ctx, 1.5);
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+
+#if(!PBL_ROUND)
+    graphics_draw_line(ctx, GPoint(bounds.origin.x + i + offset, (bounds.size.h / 3) + (close_history[id][i]-10)), GPoint(bounds.origin.x + i + 1 + offset, (bounds.size.h / 3) + (close_history[id][i + 1]-10)));
+#endif
+#if(PBL_ROUND)
+    graphics_draw_line(ctx, GPoint(bounds.origin.x + i + offset, (bounds.size.h / 3) + (close_history[id][i]-10) + y_offset), GPoint(bounds.origin.x + i + 1 + offset, (bounds.size.h / 3) + (close_history[id][i + 1]-10) + y_offset));
+#endif
+  }
 }
 
 static void detail_window_load(Window *window) {
@@ -104,13 +117,13 @@ static void draw_ticker_cell(GContext *ctx, const Layer *cell_layer, MenuIndex *
 
   graphics_draw_rect(ctx, bounds);
 
-  if (atof(tickers[id]) > 0) { //convert change to int and check if it's positive or negative
+  if (change_int[id] > 0) { //convert change to int and check if it's positive or negative
     if(menu_cell_layer_is_highlighted(cell_layer)) { //if positive, set highlight color to green
       graphics_context_set_fill_color(ctx, GColorGreen);
     } else {
       graphics_context_set_fill_color(ctx, GColorBlack);
     }
-  } else if (atof(tickers[id]) < 0) { //if negative, set highlight color to red
+  } else if (change_int[id] < 0) { //if negative, set highlight color to red
     if(menu_cell_layer_is_highlighted(cell_layer)) {
       graphics_context_set_fill_color(ctx, GColorRed);
     } else {
@@ -143,19 +156,6 @@ static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex 
 
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Message received!");
-
-  // if (received == 0) { //if no data has been received yet, clear all arrays for new batch
-  //   APP_LOG(APP_LOG_LEVEL_DEBUG, "Clearing arrays");
-  //   memset(tickers, 0, sizeof(tickers[0][0]) * MAX_TICKERS * MAX_TICKER_LENGTH);
-  //   memset(open, 0, sizeof(open[0][0]) * MAX_TICKERS * 10);
-  //   memset(high, 0, sizeof(high[0][0]) * MAX_TICKERS * 10);
-  //   memset(low, 0, sizeof(low[0][0]) * MAX_TICKERS * 10);
-  //   memset(price, 0, sizeof(price[0][0]) * MAX_TICKERS * 10);
-  //   memset(close, 0, sizeof(close[0][0]) * MAX_TICKERS * 10);
-  //   memset(change, 0, sizeof(change[0][0]) * MAX_TICKERS * 10);
-  //   memset(changePercent, 0, sizeof(changePercent[0][0]) * MAX_TICKERS * 32);
-  //   // memset(close_history, 0, sizeof(close_history[0][0]) * MAX_TICKERS * 140);
-  // }
 
   Tuple *total_tuple = dict_find (iter, MESSAGE_KEY_TotalTickers);
   if (total_tuple) {
@@ -193,17 +193,20 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
     strcpy(close[received], close_tuple->value->cstring);
   }
   
-  // Tuple *close_history_tuple = dict_find(iter, MESSAGE_KEY_CloseHistory);
-  // if (close_history_tuple) {
-  //   //Write received data to close_history array
-  //   memcpy(close_history[received], close_history_tuple->value->data, close_history_tuple->length);
-  //   //Log for safe measure
-  //   APP_LOG(APP_LOG_LEVEL_DEBUG, "Close history %i received", (int)close_history[received][0]);
-  // }
+  Tuple *close_history_tuple = dict_find(iter, MESSAGE_KEY_CloseHistory);
+  if (close_history_tuple) {
+    memcpy(close_history[received], close_history_tuple->value->data, close_history_tuple->length);
+    persist_write_data(MESSAGE_KEY_CloseHistory, close_history, sizeof(close_history));
+  }
   
   Tuple *change_tuple = dict_find(iter, MESSAGE_KEY_Change);
   if (change_tuple) {
     strcpy(change[received], change_tuple->value->cstring);
+  }
+
+  Tuple *change_int_tuple = dict_find(iter, MESSAGE_KEY_ChangeInt);
+  if (change_int_tuple) {
+    change_int[received] = change_int_tuple->value->int32;
   }
 
   Tuple *change_percent_tuple = dict_find(iter, MESSAGE_KEY_ChangePercent);
@@ -250,7 +253,7 @@ static void window_load(Window *window) {
     APP_LOG(APP_LOG_LEVEL_DEBUG, "Drawing no data message");
     //create a text layer at the origin and span the entire screen
     s_text_layer = text_layer_create(GRect(0, 0, bounds.size.w, bounds.size.h));
-    text_layer_set_text(s_text_layer, "Loading...\n\n\n\nMake sure you have added tickers to your watchlist in the Pebble app.");
+    text_layer_set_text(s_text_layer, "\nLoading...\n\n\nMake sure you have added tickers to your watchlist in the Pebble app.");
     text_layer_set_background_color(s_text_layer, GColorBlack);
     text_layer_set_text_color(s_text_layer, GColorWhite);
     text_layer_set_font(s_text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
