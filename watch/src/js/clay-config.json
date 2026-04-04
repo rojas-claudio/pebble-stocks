@@ -1,0 +1,103 @@
+[
+    {
+        "type": "section",
+        "items": [
+            {
+                "type": "heading",
+                "defaultValue": "Stocks"
+            },
+            {
+                "type": "text",
+                "defaultValue": "Use this configuration page to add tickers to your watchlist. Your Pebble can hold up to 10 tickers at a time."
+            }
+        ]
+    },
+    {
+        "type": "section",
+        "items": [
+            {
+                "type": "input",
+                "messageKey": "watchlist",
+                "attributes": {
+                    "placeholder": "AAPL"
+                },
+                "defaultValue": "",
+                "label": "Ticker 1",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_2",
+                "attributes": {
+                    "placeholder": "MSFT"
+                },
+                "defaultValue": "",
+                "label": "Ticker 2",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_3",
+                "attributes": {
+                    "placeholder": "GOOGL"
+                },
+                "defaultValue": "",
+                "label": "Ticker 3",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_4",
+                "defaultValue": "",
+                "label": "Ticker 4",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_5",
+                "defaultValue": "",
+                "label": "Ticker 5",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_6",
+                "defaultValue": "",
+                "label": "Ticker 6",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_7",
+                "defaultValue": "",
+                "label": "Ticker 7",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_8",
+                "defaultValue": "",
+                "label": "Ticker 8",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_9",
+                "defaultValue": "",
+                "label": "Ticker 9",
+                "group": "Watchlist"
+            },
+            {
+                "type": "input",
+                "messageKey": "Ticker_10",
+                "defaultValue": "",
+                "label": "Ticker 10",
+                "group": "Watchlist"
+            }
+        ]
+    },
+    {
+        "type": "submit",
+        "defaultValue":  "SAVE"
+    }
+]

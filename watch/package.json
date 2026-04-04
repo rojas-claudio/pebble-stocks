@@ -1,0 +1,59 @@
+{
+  "name": "stocks",
+  "author": "itsthered1",
+  "version": "1.0.0",
+  "keywords": [
+    "pebble-app"
+  ],
+  "private": true,
+  "dependencies": {
+    "@rebble/clay": "^1.0.8",
+    "message-queue-pebble": "^1.0.0"
+  },
+  "capabilities": [
+    "configurable"
+  ],
+  "pebble": {
+    "displayName": "Stocks",
+    "uuid": "cada6175-4193-41b2-980a-19539108e221",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "aplite",
+      "basalt",
+      "diorite",
+      "emery",
+      "flint"
+    ],
+    "watchapp": {
+      "watchface": false
+    },
+    "messageKeys": [
+      "Type",
+      "WatchlistPosition",
+      "WatchlistSize",
+      "Symbol",
+      "Price",
+      "Change",
+      "ChangePercent",
+      "Timeframe",
+      "HistoryData",
+      "LastUpdated"
+    ],
+    "resources": {
+      "media": [
+        {
+          "menuIcon": true,
+          "type": "png",
+          "name": "menu_icon",
+          "file": "menu_icon.png"
+        },
+        {
+          "type": "raw",
+          "name": "ERROR_SERVER_UNREACHABLE",
+          "file": "ERROR_SERVER_UNREACHABLE.pdc"
+        }
+      ]
+    }
+  }
+}

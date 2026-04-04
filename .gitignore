@@ -1,0 +1,19 @@
+.env
+
+.vscode/
+.claude/
+
+node_modules/
+build/
+
+package-lock.json
+.lock*
+
+# os files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

@@ -1,0 +1,124 @@
+var api = require ("./api");
+
+var Clay = require('@rebble/clay');
+var clayConfig = require('./clay-config');
+var clay = new Clay(clayConfig);
+
+var MessageQueue = require("message-queue-pebble");
+
+var MESSAGETYPE = {
+    ERROR: 0,
+    NOCONNECTION: 1,
+    READY: 2,
+    LOADED: 3,
+    SYMBOLDATA: 4,
+    HISTORYREQUEST: 5,
+    HISTORYCHUNK: 6,
+    REFRESH: 7,
+};
+
+var DEFAULT_WATCHLIST = ['SPY', 'GLD', 'CCJ', 'UEC', 'DNN'];
+var HISTORY_TIMEFRAMES = ['1D', '1W', '1M', '3M', 'YTD', '1Y'];
+
+var historyCache = {};
+
+function loadHistory(symbol, timeframe) {
+    api.fetchHistory(symbol, timeframe, function(err, history) {
+        if (err) {
+            console.log("[PKJS][HISTORY] Error fetching history for " + symbol);
+            console.log(err);
+            return;
+        }
+
+        var closes = history.map(function(point) { return point[1]; });
+
+        // Pack each close price as a signed int32 (cents) in little-endian byte order.
+        // Pebble AppMessage arrays are byte arrays, so multi-byte values must be packed manually.
+        var buf = [];
+        closes.forEach(function(c) {
+            var val = Math.round(c * 100);
+            buf.push(val & 0xFF);
+            buf.push((val >> 8) & 0xFF);
+            buf.push((val >> 16) & 0xFF);
+            buf.push((val >> 24) & 0xFF);
+        });
+
+        var data = {
+            'Type': MESSAGETYPE.HISTORYCHUNK,
+            'Symbol': symbol,
+            'Timeframe': timeframe,
+            'HistoryData': buf,
+        };
+
+        MessageQueue.sendAppMessage(data, function() {
+            console.log("[PKJS][HISTORY] " + symbol + " data sent to watch.");
+        }, function(e) {
+            console.log("[PKJS][HISTORY] Error sending history data: " + JSON.stringify(e));
+        });
+    });
+}
+
+function loadWatchlist(watchlist) {
+    var completed = 0;
+    var noConnectionSent = false;
+
+    watchlist.forEach(function(symbol) {
+        // console.log('loading ' + symbol)
+        api.fetchQuote(symbol, function(err, quote) {
+            if (err && err.message === 'Network error') {
+                console.log("[Quote] No connection: " + symbol);
+                if (!noConnectionSent) {
+                    noConnectionSent = true;
+                    MessageQueue.sendAppMessage({ 'Type': MESSAGETYPE.NOCONNECTION });
+                }
+                return;
+            }
+
+            var data = {
+                'WatchlistPosition': watchlist.indexOf(symbol),
+                'Type': MESSAGETYPE.SYMBOLDATA,
+                'WatchlistSize': watchlist.length,
+                'Symbol': symbol,
+                'Price': err ? 0 : Math.round(quote.price * 100),
+                'Change': err ? 0 : Math.round(quote.change * 100),
+                'ChangePercent': err ? 0 : Math.round(quote.changePercent * 100),
+                'LastUpdated': err ? 0 : Math.floor(Date.now() / 1000)
+            };
+
+            if (err) {
+                console.log("[Quote] " + symbol + ": " + err.message);
+            }
+
+            MessageQueue.sendAppMessage(data, function() {
+                console.log("[Quote] " + symbol + " data sent to watch: " + JSON.stringify(data));
+            }, function(e) {
+                console.log("[Quote] Error sending quote data: " + JSON.stringify(e));
+            });
+
+            completed++;
+            if (completed === watchlist.length) {
+                MessageQueue.sendAppMessage({ 'Type': MESSAGETYPE.LOADED });
+            }
+        });
+    });
+}
+
+Pebble.addEventListener('appmessage', function(e) {
+    var dict = e.payload;
+
+    console.log('[PKJS][HISTORY] Got request for ' + dict.Symbol + ' over ' + dict.Timeframe);
+
+    loadHistory(dict.Symbol, dict.Timeframe);
+});
+
+Pebble.addEventListener('ready', function() {
+    console.log('[PKJS] PebbleKit JS ready!');
+
+    MessageQueue.sendAppMessage({ 'Type': MESSAGETYPE.READY }, function() {
+        console.log('[PKJS] Watch notified of PKJS Ready Event');
+        var watchlist = localStorage.getItem('watchlist') ? JSON.parse(localStorage.getItem('watchlist')) : DEFAULT_WATCHLIST;
+        loadWatchlist(watchlist);
+    }, function(e) {
+        console.log('[PKJS] Error notifying watch of PKJS Ready Event: ' + JSON.stringify(e));
+    });
+});

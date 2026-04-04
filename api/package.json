@@ -1,0 +1,21 @@
+{
+  "name": "pebble-stocks-api",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "start.js",
+  "scripts": {
+    "start": "node --env-file=.env start.js",
+    "dev": "node --env-file=.env --watch start.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@agendajs/mongo-backend": "^3.1.0",
+    "agenda": "^6.2.1",
+    "dotenv": "^17.3.1",
+    "env": "^0.0.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.2.1"
+  }
+}
