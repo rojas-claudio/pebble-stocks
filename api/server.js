@@ -1,8 +1,29 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Ticker from './models/Ticker.js';
 import { getQuote, getHistory } from './provider/yahoo.js';
 
 const app = express();
+
+// Serverless-safe MongoDB connection — reuses connection across warm invocations
+let _conn = null;
+async function connectDB() {
+  if (_conn) return;
+  _conn = await mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 10000,
+  });
+}
+
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('MongoDB connection failed:', err.message);
+    res.status(503).json({ error: 'Database unavailable' });
+  }
+});
 
 const QUOTE_TTL = 15; // minutes
 
