@@ -1,7 +1,7 @@
 import { Agenda } from 'agenda';
 import { MongoBackend } from '@agendajs/mongo-backend';
 import Ticker from './models/Ticker.js';
-import { getQuote } from './services/finnhub.js';
+import { getQuote } from './provider/yahoo.js';
 
 export async function startWorker(mongoUri) {
   const agenda = new Agenda({
