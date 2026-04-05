@@ -74,8 +74,17 @@ export async function getHistory(ticker, range) {
 
     const closes = result.indicators.quote[0].close;
 
-    // Return [timestamp, close] pairs, dropping nulls (market closed periods)
-    return result.timestamp
+    // Get [timestamp, close] pairs, dropping nulls (market closed periods)
+    let data = result.timestamp
         .map((t, i) => [t, closes[i]])
         .filter(([, c]) => c != null);
+
+    // Downsample to maximum 120 points
+    const maxPoints = 120;
+    if (data.length > maxPoints) {
+        const step = Math.ceil(data.length / maxPoints);
+        data = data.filter((_, i) => i % step === 0);
+    }
+
+    return data;
 }
