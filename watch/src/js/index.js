@@ -13,16 +13,18 @@ var MESSAGETYPE = {
     LOADED: 3,
     SYMBOLDATA: 4,
     HISTORYREQUEST: 5,
-    HISTORYCHUNK: 6,
+    HISTORYDATA: 6,
     REFRESH: 7,
 };
 
 var DEFAULT_WATCHLIST = ['SPY', 'GLD', 'CCJ', 'UEC', 'DNN'];
-var HISTORY_TIMEFRAMES = ['1D', '1W', '1M', '3M', 'YTD', '1Y'];
-
-var historyCache = {};
 
 function loadHistory(symbol, timeframe) {
+    var watchlist = localStorage.getItem('watchlist')
+        ? JSON.parse(localStorage.getItem('watchlist'))
+        : DEFAULT_WATCHLIST;
+    var position = watchlist.indexOf(symbol);
+
     api.fetchHistory(symbol, timeframe, function(err, history) {
         if (err) {
             console.log("[PKJS][HISTORY] Error fetching history for " + symbol);
@@ -32,8 +34,7 @@ function loadHistory(symbol, timeframe) {
 
         var closes = history.map(function(point) { return point[1]; });
 
-        // Pack each close price as a signed int32 (cents) in little-endian byte order.
-        // Pebble AppMessage arrays are byte arrays, so multi-byte values must be packed manually.
+        // Pack each close price as a signed int32 (cents) in little-endian byte order
         var buf = [];
         closes.forEach(function(c) {
             var val = Math.round(c * 100);
@@ -44,10 +45,12 @@ function loadHistory(symbol, timeframe) {
         });
 
         var data = {
-            'Type': MESSAGETYPE.HISTORYCHUNK,
+            'Type': MESSAGETYPE.HISTORYDATA,
+            'WatchlistPosition': position,
             'Symbol': symbol,
             'Timeframe': timeframe,
             'HistoryData': buf,
+            'HistoryDataSize': closes.length
         };
 
         MessageQueue.sendAppMessage(data, function() {
