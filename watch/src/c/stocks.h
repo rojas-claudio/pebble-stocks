@@ -2,7 +2,14 @@
 
 #include <pebble.h>
 
-#define MAX_HISTORY_POINTS 60
+#define MAX_HISTORY_POINTS 120
+
+typedef struct StockHistory {
+    char symbol[16];
+    char timeframe[4];
+    int32_t closes[MAX_HISTORY_POINTS];
+    int count;
+} StockHistory_t;
 
 typedef struct StockData {
     int32_t position;
@@ -11,14 +18,8 @@ typedef struct StockData {
     char change[16];
     char changePercent[16];
     char lastUpdated[16];
+    StockHistory_t *history;
 } StockData_t;
-
-typedef struct StockHistory {
-    char symbol[16];
-    char timeframe[4];
-    int32_t closes[MAX_HISTORY_POINTS];
-    int count;
-} StockHistory_t;
 
 // callbacks
 // typedef void (*StockQuoteUpdatedCallback)(int position);

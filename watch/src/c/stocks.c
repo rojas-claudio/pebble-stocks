@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include <time.h>
 
 #include "stocks.h"
 
@@ -26,6 +27,96 @@ static int s_total_quotes = 0;
 
 static bool s_watchlist_initialized = false;
 
+// Public
+
+StockData_t *stocks_get_quote(int position) {
+    if (position < 0 || position >= s_total_quotes) return NULL;
+    return &s_watchlist[position];
+}
+
+// Handlers for incoming data
+
+static void handle_symbol_data(DictionaryIterator *iterator) {
+    Tuple *position_tuple       = dict_find(iterator, MESSAGE_KEY_WatchlistPosition);
+    Tuple *size_tuple           = dict_find(iterator, MESSAGE_KEY_WatchlistSize);
+    Tuple *symbol_tuple         = dict_find(iterator, MESSAGE_KEY_Symbol);
+    Tuple *price_tuple          = dict_find(iterator, MESSAGE_KEY_Price);
+    Tuple *change_tuple         = dict_find(iterator, MESSAGE_KEY_Change);
+    Tuple *change_percent_tuple = dict_find(iterator, MESSAGE_KEY_ChangePercent);
+    Tuple *last_updated_tuple   = dict_find(iterator, MESSAGE_KEY_LastUpdated);
+
+    if (!position_tuple         || 
+        !size_tuple             || 
+        !symbol_tuple           || 
+        !price_tuple            || 
+        !change_tuple           || 
+        !change_percent_tuple   || 
+        !last_updated_tuple) {
+        return;
+    }
+
+    int position            = (int)position_tuple->value->int32;
+    int size                = (int)size_tuple->value->int32;
+    int change_val          = (int)change_tuple->value->int32;
+    int change_percent_val  = (int)change_percent_tuple->value->int32;
+    int last_updated_val    = (int)last_updated_tuple->value->int32;
+
+    StockData_t *quote = &s_watchlist[position];
+    quote->position = position;
+
+    strncpy(quote->symbol, symbol_tuple->value->cstring, sizeof(quote->symbol) - 1);
+    
+    snprintf(quote->price, sizeof(quote->price), "%d.%02d", (int)price_tuple->value->int32 / 100, (int)price_tuple->value->int32 % 100);
+    snprintf(quote->change, sizeof(quote->change), "%s%d.%02d",
+             change_val > 0 ? "+" : (change_val < 0 ? "-" : ""),
+             abs(change_val) / 100, abs(change_val) % 100);
+    snprintf(quote->changePercent, sizeof(quote->changePercent), "%s%d.%02d",
+             change_percent_val > 0 ? "+" : (change_percent_val < 0 ? "-" : ""),
+             abs(change_percent_val) / 100, abs(change_percent_val) % 100);
+
+    time_t t = (time_t)last_updated_val;
+    struct tm *tm_info = localtime(&t);
+    strftime(quote->lastUpdated, sizeof(quote->lastUpdated), "%H:%M", tm_info);
+
+    s_total_quotes = size;
+    s_received_quotes++;
+
+}
+
+static void handle_history_data(DictionaryIterator *iterator) {
+    Tuple *position_tuple       = dict_find(iterator, MESSAGE_KEY_WatchlistPosition);
+    Tuple *symbol_tuple         = dict_find(iterator, MESSAGE_KEY_Symbol);
+    Tuple *timeframe_tuple      = dict_find(iterator, MESSAGE_KEY_Timeframe);
+    Tuple *history_data_tuple   = dict_find(iterator, MESSAGE_KEY_HistoryData);
+    Tuple *history_size_tuple   = dict_find(iterator, MESSAGE_KEY_HistoryDataSize);
+
+
+    if ( !position_tuple || !symbol_tuple || !timeframe_tuple || !history_data_tuple || !history_size_tuple) {
+        return;
+    }
+
+    int position            = (int)position_tuple->value->int32;
+    const char *symbol            = symbol_tuple->value->cstring;
+    const char *timeframe         = timeframe_tuple->value->cstring;
+    int history_size        = (int)history_size_tuple->value->int32;
+
+    StockData_t *quote = &s_watchlist[position];
+    if (quote->history) {
+        free(quote->history);
+    }
+    quote->history = malloc(sizeof(StockHistory_t));
+    int point_count = history_size;
+    if (point_count > MAX_HISTORY_POINTS) point_count = MAX_HISTORY_POINTS;
+    int max_from_bytes = (int)history_data_tuple->length / (int)sizeof(int32_t);
+    if (point_count > max_from_bytes) point_count = max_from_bytes;
+    memcpy(quote->history->closes, history_data_tuple->value->data, point_count * sizeof(int32_t));
+    quote->history->count = point_count;
+    strncpy(quote->history->symbol, symbol, sizeof(quote->history->symbol) - 1);
+    strncpy(quote->history->timeframe, timeframe, sizeof(quote->history->timeframe) - 1);
+}
+
+// History
+
 void stocks_request_history(const char *symbol, const char *timeframe) {
     DictionaryIterator *iter;
     AppMessageResult result = app_message_outbox_begin(&iter);
@@ -40,6 +131,8 @@ void stocks_request_history(const char *symbol, const char *timeframe) {
 
     app_message_outbox_send();
 }
+
+// AppMessage
 
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
     Tuple *type_tuple = dict_find(iterator, MESSAGE_KEY_Type);
@@ -67,100 +160,69 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
 
     MsgType msg_type = (MsgType)type_tuple->value->int32;
 
-    if (!s_watchlist_initialized) {
-        switch (msg_type) {
-            case MSG_TYPE_READY: {
-                // APP_LOG(APP_LOG_LEVEL_INFO, "READY received");
-                splash_update_progress(25);
-                break;
-            }
-            case MSG_TYPE_ERROR: {
-                // TODO: Implement error logic
-                break;
-            }
-            case MSG_TYPE_NOCONNECTION: {
+    switch (msg_type) {
+        case MSG_TYPE_READY: {
+            splash_update_progress(25);
+            break;
+        }
+        case MSG_TYPE_ERROR: {
+            break;
+        }
+        case MSG_TYPE_NOCONNECTION: {
+            if (!s_watchlist_initialized) {
                 splash_deinit();
                 error_init();
-                break;
             }
-            case MSG_TYPE_LOADED: {
+            break;
+        }
+        case MSG_TYPE_LOADED: {
+            if (!s_watchlist_initialized) {
                 s_watchlist_initialized = true;
                 splash_update_progress(100);
                 splash_deinit();
-                watchlist_window_init(s_watchlist, s_total_quotes);
-                break;
+                watchlist_window_init(s_total_quotes);
             }
-            case MSG_TYPE_SYMBOLDATA: {
-                // APP_LOG(APP_LOG_LEVEL_INFO, "SYMBOLDATA received");
-                Tuple *watchlist_position_tuple = dict_find(iterator, MESSAGE_KEY_WatchlistPosition);
-                if (!watchlist_position_tuple) { return; }
-                Tuple *watchlist_size_tuple = dict_find(iterator, MESSAGE_KEY_WatchlistSize);
-                if (!watchlist_size_tuple) { return; }
+            break;
+        }
+        case MSG_TYPE_SYMBOLDATA: {
+            handle_symbol_data(iterator);
 
-                Tuple *symbol_tuple = dict_find(iterator, MESSAGE_KEY_Symbol);
-                Tuple *price_tuple = dict_find(iterator, MESSAGE_KEY_Price);
-                Tuple *change_tuple = dict_find(iterator, MESSAGE_KEY_Change);
-                Tuple *change_percent_tuple = dict_find(iterator, MESSAGE_KEY_ChangePercent);
-                Tuple *last_updated_tuple = dict_find(iterator, MESSAGE_KEY_LastUpdated);
-
-                int change_val = (int)change_tuple->value->int32;
-                int change_percent_val = (int)change_percent_tuple->value->int32;
-                int last_updated_val = (int)last_updated_tuple->value->int32;
-
-                if (!symbol_tuple || !price_tuple || !change_tuple || !change_percent_tuple || !last_updated_tuple) { return; }
-
-                StockData_t quote;
-                quote.position = watchlist_position_tuple->value->int32;
-                strncpy(quote.symbol, symbol_tuple->value->cstring, sizeof(quote.symbol) - 1);
-                snprintf(quote.price, sizeof(quote.price), "%d.%02d", (int)price_tuple->value->int32 / 100, (int)price_tuple->value->int32 % 100);
-                snprintf(quote.change, sizeof(quote.change), "%s%d.%02d",
-                        change_val > 0 ? "+" : (change_val < 0 ? "-" : ""),
-                        abs(change_val) / 100, abs(change_val) % 100);
-                snprintf(quote.changePercent, sizeof(quote.changePercent), "%s%d.%02d",
-                        change_percent_val > 0 ? "+" : (change_percent_val < 0 ? "-" : ""),
-                        abs(change_percent_val) / 100, abs(change_percent_val) % 100);
-
-                time_t t = (time_t)last_updated_val;
-                struct tm *tm_info = localtime(&t);
-                strftime(quote.lastUpdated, sizeof(quote.lastUpdated), "%H:%M", tm_info);
-
-                s_watchlist[quote.position] = quote;
-                s_received_quotes++;
-                s_total_quotes = watchlist_size_tuple->value->int32;
+            if (!s_watchlist_initialized) {
                 if (s_received_quotes > 0) { // between 25 and 100% as quotes arrive
                     int progress = 25 + (75 * s_received_quotes / s_total_quotes);
                     splash_update_progress(progress);
                 }
-                break;
+            } else {
+                // TODO: handle refresh
             }
-            case MSG_TYPE_HISTORY_DATA: {
-                Tuple *symbol_tuple = dict_find(iterator, MESSAGE_KEY_Symbol);
-                Tuple *timeframe_tuple = dict_find(iterator, MESSAGE_KEY_Timeframe);
-                Tuple *history_data_tuple = dict_find(iterator, MESSAGE_KEY_HistoryData);
+            
+            break;
+        }
+        case MSG_TYPE_HISTORY_DATA: {
+            Tuple *symbol_tuple = dict_find(iterator, MESSAGE_KEY_Symbol);
+            Tuple *timeframe_tuple = dict_find(iterator, MESSAGE_KEY_Timeframe);
+            Tuple *history_data_tuple = dict_find(iterator, MESSAGE_KEY_HistoryData);
 
-                if (!symbol_tuple || !timeframe_tuple || !history_data_tuple) {
-                    // TODO: error logic
-                    return;
-                }
-
-                bool is_detail_active = window_stack_get_top_window() == detail_window_get_window();
-                bool is_correct_symbol = symbol_tuple && strcmp(symbol_tuple->value->cstring, detail_window_get_symbol()) == 0;
-
-                if (is_detail_active && is_correct_symbol) {
-
-                }
-
-                break;
-            }
-            default: {
+            if (!symbol_tuple || !timeframe_tuple || !history_data_tuple) {
                 return;
             }
+
+            bool is_detail_active = window_stack_get_top_window() == detail_window_get_window();
+            bool is_correct_symbol = symbol_tuple && strcmp(symbol_tuple->value->cstring, detail_window_get_symbol()) == 0;
+
+            if (is_detail_active && is_correct_symbol) {
+                handle_history_data(iterator);
+            }
+
+            break;
+        }
+        default: {
+            return;
         }
     }
-    else {
-        // Logic for handling updates to individual stocks
-    }
 }
+
+// Main app
 
 static void stocks_deinit(void) {
     app_message_deregister_callbacks();
