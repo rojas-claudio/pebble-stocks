@@ -193,9 +193,13 @@ void detail_window_deinit(void) {
     window_destroy(s_detail_window);
 }
 
-void detail_window_init(StockData_t *quote) {
-    char *default_timeframe = "1M"; // will be configurable later
+void detail_window_init(int position) {
+    char *default_timeframe = "1W"; // will be configurable later
 
+    StockData_t *quote = stocks_get_quote(position);
+    if (!quote) {
+        return;
+    }
     s_current_quote = *quote;
 
     s_detail_window = window_create();
@@ -204,6 +208,7 @@ void detail_window_init(StockData_t *quote) {
         .load = detail_window_load,
         .unload = detail_window_unload,
     });
+    
 #ifdef PBL_COLOR
     window_set_background_color(s_detail_window, GColorBlack);
 #else
