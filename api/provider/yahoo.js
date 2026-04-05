@@ -80,7 +80,7 @@ export async function getHistory(ticker, range) {
         .filter(([, c]) => c != null);
 
     // Downsample to maximum 120 points
-    const maxPoints = 120;
+    const maxPoints = 100;
     if (data.length > maxPoints) {
         const step = Math.ceil(data.length / maxPoints);
         data = data.filter((_, i) => i % step === 0);
