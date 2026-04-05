@@ -1,20 +1,19 @@
 import express from 'express';
 import Ticker from './models/Ticker.js';
-import { getQuote, getCandles } from './services/finnhub.js';
+import { getQuote, getHistory } from './provider/yahoo.js';
 
 const app = express();
 
-// Range config: Yahoo Finance range/interval params + cache TTL in minutes
-const RANGES = {
-  '1D':  { range: '1d',  interval: '5m',  ttl: 5 },
-  '1W':  { range: '5d',  interval: '30m', ttl: 30 },
-  '1M':  { range: '1mo', interval: '1d',  ttl: 1440 },
-  '3M':  { range: '3mo', interval: '1d',  ttl: 1440 },
-  'YTD': { range: 'ytd', interval: '1d',  ttl: 1440 },
-  '1Y':  { range: '1y',  interval: '1d',  ttl: 1440 },
-};
-
 const QUOTE_TTL = 15; // minutes
+
+const HISTORY_TTL = {
+  '1D':  5,
+  '1W':  30,
+  '1M':  1440,
+  '3M':  1440,
+  'YTD': 1440,
+  '1Y':  1440,
+};
 
 function isFresh(updatedAt, ttlMinutes) {
   if (!updatedAt) return false;
@@ -39,7 +38,7 @@ app.get('/api/tickers/:ticker', async (req, res) => {
       });
     }
 
-    // Cache miss or stale — fetch from Finnhub
+    // Cache miss or stale — fetch from Yahoo Finance
     const quote = await getQuote(ticker);
     if (!quote) {
       return res.status(404).json({ error: 'Ticker not found' });
@@ -68,24 +67,19 @@ app.get('/api/tickers/:ticker/history', async (req, res) => {
   const ticker = req.params.ticker.toUpperCase();
   const range = (req.query.range || '1M').toUpperCase();
 
-  if (!RANGES[range]) {
-    return res.status(400).json({
-      error: 'Invalid range',
-      valid: Object.keys(RANGES),
-    });
+  if (!HISTORY_TTL[range]) {
+    return res.status(400).json({ error: 'Invalid range', valid: Object.keys(HISTORY_TTL) });
   }
 
   try {
     const doc = await Ticker.findOne({ ticker });
     const cached = doc?.history?.get(range);
 
-    if (cached?.data?.length && isFresh(cached.updatedAt, RANGES[range].ttl)) {
+    if (cached?.data?.length && isFresh(cached.updatedAt, HISTORY_TTL[range])) {
       return res.json({ ticker, range, data: cached.data });
     }
 
-    // Fetch from Yahoo Finance
-    const { range: yahooRange, interval } = RANGES[range];
-    const data = await getCandles(ticker, yahooRange, interval);
+    const data = await getHistory(ticker, range);
 
     if (!data) {
       return res.status(404).json({ error: 'No data available for this ticker/range' });
