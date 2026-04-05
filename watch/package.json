@@ -38,6 +38,7 @@
       "ChangePercent",
       "Timeframe",
       "HistoryData",
+      "HistoryDataSize",
       "LastUpdated"
     ],
     "resources": {
