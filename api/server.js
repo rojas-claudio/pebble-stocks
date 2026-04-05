@@ -85,14 +85,15 @@ app.get('/api/tickers/:ticker/history', async (req, res) => {
       return res.status(404).json({ error: 'No data available for this ticker/range' });
     }
 
-    // Cache in MongoDB
-    await Ticker.findOneAndUpdate(
-      { ticker },
-      { [`history.${range}`]: { data, updatedAt: new Date() } },
-      { upsert: true }
-    );
-
+    // Respond immediately — don't let a cache write failure block the watch
     res.json({ ticker, range, data });
+
+    // Cache in MongoDB (fire and forget)
+    Ticker.findOneAndUpdate(
+      { ticker },
+      { $set: { [`history.${range}`]: { data, updatedAt: new Date() } } },
+      { upsert: true }
+    ).catch(err => console.error(`Cache write failed for ${ticker}/${range}:`, err.message));
   } catch (err) {
     console.error(`Error fetching history for ${ticker} (${range}):`, err.message);
     res.status(500).json({ error: 'Failed to fetch history' });
