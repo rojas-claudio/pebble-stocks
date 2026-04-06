@@ -2,7 +2,7 @@
 
 #include <pebble.h>
 
-#define MAX_HISTORY_POINTS 120
+#define MAX_HISTORY_POINTS 100
 
 typedef struct StockHistory {
     char symbol[16];
