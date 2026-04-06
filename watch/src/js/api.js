@@ -8,7 +8,7 @@
  * All callbacks follow the Node convention: callback(err, data).
  */
 
-var BASE_URL = 'http://192.168.20.151';
+var BASE_URL = 'https://stocks-api.rojas.tech';
 
 function fetchJSON(url, callback) {
     var xhr = new XMLHttpRequest();
