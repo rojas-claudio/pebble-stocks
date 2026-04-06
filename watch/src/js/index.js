@@ -20,17 +20,25 @@ var MESSAGETYPE = {
 var DEFAULT_WATCHLIST = ['SPY', 'GLD', 'CCJ', 'UEC', 'DNN'];
 
 function loadHistory(symbol, timeframe) {
+    console.log("[PKJS][HISTORY] loadHistory called: " + symbol + " / " + timeframe);
+
     var watchlist = localStorage.getItem('watchlist')
         ? JSON.parse(localStorage.getItem('watchlist'))
         : DEFAULT_WATCHLIST;
     var position = watchlist.indexOf(symbol);
+    console.log("[PKJS][HISTORY] position=" + position + " queueSize=" + MessageQueue.size());
 
     api.fetchHistory(symbol, timeframe, function(err, history) {
         if (err) {
-            console.log("[PKJS][HISTORY] Error fetching history for " + symbol);
-            console.log(err);
+            console.log("[PKJS][HISTORY] API error: " + err.message);
             return;
         }
+        if (!history || !history.length) {
+            console.log("[PKJS][HISTORY] API returned empty history");
+            return;
+        }
+
+        console.log("[PKJS][HISTORY] Got " + history.length + " points from API");
 
         var closes = history.map(function(point) { return point[1]; });
 
@@ -53,10 +61,11 @@ function loadHistory(symbol, timeframe) {
             'HistoryDataSize': closes.length
         };
 
-        MessageQueue.sendAppMessage(data, function() {
-            console.log("[PKJS][HISTORY] " + symbol + " data sent to watch.");
+        console.log("[PKJS][HISTORY] Sending " + closes.length + " points (" + buf.length + " bytes), pos=" + position);
+        Pebble.sendAppMessage(data, function() {
+            console.log("[PKJS][HISTORY] ACK: " + symbol + " delivered to watch.");
         }, function(e) {
-            console.log("[PKJS][HISTORY] Error sending history data: " + JSON.stringify(e));
+            console.log("[PKJS][HISTORY] NACK: " + JSON.stringify(e));
         });
     });
 }
@@ -108,6 +117,8 @@ function loadWatchlist(watchlist) {
 
 Pebble.addEventListener('appmessage', function(e) {
     var dict = e.payload;
+
+    if (dict.Type !== MESSAGETYPE.HISTORYREQUEST) return;
 
     console.log('[PKJS][HISTORY] Got request for ' + dict.Symbol + ' over ' + dict.Timeframe);
 
