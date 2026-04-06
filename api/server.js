@@ -5,7 +5,11 @@ import { getQuote, getHistory } from './provider/yahoo.js';
 
 const app = express();
 
-// Serverless-safe MongoDB connection — reuses connection across warm invocations
+//
+//    MONGODB Connection
+//
+///////////////////////////////////////////////////////
+
 let _conn = null;
 async function connectDB() {
   if (_conn) return;
@@ -25,6 +29,11 @@ app.use(async (req, res, next) => {
   }
 });
 
+//
+//    API Helpers
+//
+///////////////////////////////////////////////////////
+
 const QUOTE_TTL = 15; // minutes
 
 const HISTORY_TTL = {
@@ -42,6 +51,10 @@ function isFresh(updatedAt, ttlMinutes) {
   return age < ttlMinutes;
 }
 
+//
+//    API Routes
+//
+///////////////////////////////////////////////////////
 
 // GET /api/tickers/:ticker — current quote
 app.get('/api/tickers/:ticker', async (req, res) => {
@@ -119,6 +132,30 @@ app.get('/api/tickers/:ticker/history', async (req, res) => {
     console.error(`Error fetching history for ${ticker} (${range}):`, err.message);
     res.status(500).json({ error: 'Failed to fetch history' });
   }
+});
+
+// POST /api/refresh — refreshes all cached quotes, called by cron
+app.post('/api/refresh', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers['x-cron-secret'] !== secret) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const tickers = await Ticker.find({}).select('ticker').lean();
+  if (!tickers.length) return res.json({ refreshed: 0 });
+
+  const results = await Promise.allSettled(
+    tickers.map(async ({ ticker }) => {
+      const quote = await getQuote(ticker);
+      if (quote) await Ticker.findOneAndUpdate({ ticker }, { quote });
+      return ticker;
+    })
+  );
+
+  const ok  = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+  const err = results.filter(r => r.status === 'rejected').map(r => r.reason?.message);
+  console.log(`[refresh] ${ok.length} ok, ${err.length} failed`);
+  res.json({ refreshed: ok.length, failed: err.length });
 });
 
 app.get('/', (req, res) => {
