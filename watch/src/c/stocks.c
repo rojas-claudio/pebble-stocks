@@ -199,19 +199,23 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
             break;
         }
         case MSG_TYPE_HISTORY_DATA: {
-            Tuple *symbol_tuple = dict_find(iterator, MESSAGE_KEY_Symbol);
-            Tuple *timeframe_tuple = dict_find(iterator, MESSAGE_KEY_Timeframe);
+            APP_LOG(APP_LOG_LEVEL_DEBUG, "Received history data");
+            Tuple *symbol_tuple       = dict_find(iterator, MESSAGE_KEY_Symbol);
+            Tuple *timeframe_tuple    = dict_find(iterator, MESSAGE_KEY_Timeframe);
             Tuple *history_data_tuple = dict_find(iterator, MESSAGE_KEY_HistoryData);
 
             if (!symbol_tuple || !timeframe_tuple || !history_data_tuple) {
                 return;
             }
 
-            bool is_detail_active = window_stack_get_top_window() == detail_window_get_window();
-            bool is_correct_symbol = symbol_tuple && strcmp(symbol_tuple->value->cstring, detail_window_get_symbol()) == 0;
+            // Always store — graph populates immediately on next open if cached
+            handle_history_data(iterator);
 
+            // Notify detail_window if it's the active window showing this symbol
+            bool is_detail_active  = window_stack_get_top_window() == detail_window_get_window();
+            bool is_correct_symbol = strcmp(symbol_tuple->value->cstring, detail_window_get_symbol()) == 0;
             if (is_detail_active && is_correct_symbol) {
-                handle_history_data(iterator);
+                detail_window_on_history_updated();
             }
 
             break;
