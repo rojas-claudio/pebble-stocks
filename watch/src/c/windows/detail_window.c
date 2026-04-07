@@ -41,9 +41,24 @@ static GraphLayer *s_graph_layer;
 // State
 static StockData_t s_current_quote;
 
+// Actions
+static ActionMenu *s_action_menu;
+static ActionMenuLevel *s_root_level, *s_timeframe_level;
+
 static const char *TIMEFRAMES[] = { "1D", "1W", "1M", "3M", "YTD", "1Y" };
 #define TIMEFRAME_COUNT 6
 static int s_timeframe_index = 1;  // default: "1W"
+
+// -------------------------------------------------------------------------
+// Action Menu
+// -------------------------------------------------------------------------
+
+static void init_action_menu(void) {
+    s_root_level = action_menu_level_create(2);
+
+    action_menu_level_add_action(s_root_level, "Timeframe", NULL, NULL);
+    action_menu_level_add_action(s_root_level, "Refresh", NULL, NULL);
+}
 
 // -------------------------------------------------------------------------
 // Public API
@@ -92,12 +107,25 @@ static void debug_divider_update_proc(Layer *layer, GContext *ctx) {
 //     stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
 // }
 
+static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+    ActionMenuConfig config = (ActionMenuConfig) {
+        .root_level = s_root_level,
+        .colors = {
+            .background = PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite),
+            .foreground = PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack),
+        },
+        .align = ActionMenuAlignCenter
+    };
+    s_action_menu = action_menu_open(&config);
+}
+
 // static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
 //     s_timeframe_index = (s_timeframe_index + 1) % TIMEFRAME_COUNT;
 //     stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
 // }
 
 static void click_config_provider(void *context) {
+    window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
     // window_single_click_subscribe(BUTTON_ID_UP,   up_click_handler);
     // window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
@@ -117,11 +145,13 @@ static void detail_window_load(Window *window) {
 
     // Status bar
     s_status_bar_layer = status_bar_layer_create();
+
 #ifdef PBL_COLOR
     status_bar_layer_set_colors(s_status_bar_layer, GColorBlack, GColorWhite);
 #else
     status_bar_layer_set_colors(s_status_bar_layer, GColorWhite, GColorBlack);
 #endif
+
     status_bar_layer_set_separator_mode(s_status_bar_layer, StatusBarLayerSeparatorModeDotted);
 
     // ---- Segment 1: symbol (top half) + price (bottom half) ----
@@ -136,11 +166,7 @@ static void detail_window_load(Window *window) {
     snprintf(s_symbol_buffer, sizeof(s_symbol_buffer), "$%s", s_current_quote.symbol);
     text_layer_set_text(s_symbol_layer, s_symbol_buffer);
     text_layer_set_background_color(s_symbol_layer, GColorClear);
-#ifdef PBL_COLOR
-    text_layer_set_text_color(s_symbol_layer, GColorWhite);
-#else
-    text_layer_set_text_color(s_symbol_layer, GColorBlack);
-#endif
+    text_layer_set_text_color(s_symbol_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
     text_layer_set_text_alignment(s_symbol_layer, GTextAlignmentLeft);
 
     GRect price_bounds = GRect(window_bounds.origin.x + x_offset,
@@ -151,22 +177,13 @@ static void detail_window_load(Window *window) {
     snprintf(s_price_buffer, sizeof(s_price_buffer), "$%s", s_current_quote.price);
     text_layer_set_text(s_price_layer, s_price_buffer);
     text_layer_set_background_color(s_price_layer, GColorClear);
-#ifdef PBL_COLOR
-    text_layer_set_text_color(s_price_layer, GColorWhite);
-#else
-    text_layer_set_text_color(s_price_layer, GColorBlack);
-#endif
+    text_layer_set_text_color(s_price_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
     text_layer_set_text_alignment(s_price_layer, GTextAlignmentLeft);
 
     // ---- Segment 2: change % (top half) + change $ (bottom half) ----
     bool   is_negative  = s_current_quote.change[0] == '-';
     bool   is_zero      = s_current_quote.change[0] == '0';
-#ifdef PBL_COLOR
-    GColor change_color = is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen);
-#else
-    GColor change_color = GColorBlack;
-#endif
-
+    GColor change_color = PBL_IF_COLOR_ELSE(is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen), GColorBlack);
     GRect change_pct_bounds = GRect(window_bounds.size.w / 2,
                                     window_bounds.origin.y + y_offset,
                                     seg_w - x_offset,
@@ -264,14 +281,11 @@ void detail_window_init(int position) {
         .load   = detail_window_load,
         .unload = detail_window_unload,
     });
-
-#ifdef PBL_COLOR
-    window_set_background_color(s_detail_window, GColorBlack);
-#else
-    window_set_background_color(s_detail_window, GColorWhite);
-#endif
+    window_set_background_color(s_detail_window, PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
 
     stocks_request_history(quote->symbol, TIMEFRAMES[s_timeframe_index]);
 
     window_stack_push(s_detail_window, true);
+
+    init_action_menu();
 }

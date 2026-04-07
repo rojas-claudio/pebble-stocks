@@ -45,6 +45,7 @@ static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex 
     graphics_context_set_text_color(ctx, GColorWhite);
     graphics_context_set_fill_color(ctx, bg_color);
 #endif
+
     graphics_fill_rect(ctx, bounds, 0, GCornerNone);
     menu_cell_basic_draw(ctx, cell_layer, title, subtitle, NULL);
 }
@@ -67,6 +68,7 @@ static void watchlist_window_load(Window *window) {
 
     s_tickers_layer = menu_layer_create(bounds);
     menu_layer_set_click_config_onto_window(s_tickers_layer, window);
+
 #ifdef PBL_COLOR
     menu_layer_set_normal_colors(s_tickers_layer, GColorBlack, GColorWhite);
     menu_layer_set_highlight_colors(s_tickers_layer, GColorLightGray, GColorWhite);
@@ -74,6 +76,7 @@ static void watchlist_window_load(Window *window) {
     menu_layer_set_normal_colors(s_tickers_layer, GColorWhite, GColorBlack);
     menu_layer_set_highlight_colors(s_tickers_layer, GColorBlack, GColorWhite);
 #endif
+
     menu_layer_set_callbacks(s_tickers_layer, NULL, (MenuLayerCallbacks) {
         .get_num_sections = get_num_sections_callback,
         .get_num_rows = get_num_rows_callback,
@@ -101,10 +104,6 @@ void watchlist_window_init(int quote_count) {
         .load = watchlist_window_load,
         .unload = watchlist_window_unload,
     });
-#ifdef PBL_COLOR
-    window_set_background_color(s_watchlist_window, GColorBlack);
-#else
-    window_set_background_color(s_watchlist_window, GColorWhite);
-#endif
+    window_set_background_color(s_watchlist_window, PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
     window_stack_push(s_watchlist_window, true);
 }

@@ -16,11 +16,7 @@ static void graph_layer_update_proc(Layer *layer, GContext *ctx) {
         GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_18);
         int y = ((bounds.size.h) / 2) - 12;
         GRect text_rect = GRect(0, y, bounds.size.w, y);
-#ifdef PBL_COLOR
-        graphics_context_set_text_color(ctx, GColorLightGray);
-#else
-        graphics_context_set_text_color(ctx, GColorBlack);
-#endif
+        graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
         graphics_draw_text(ctx, "Loading...",
             font,
             text_rect,
@@ -37,11 +33,7 @@ static void graph_layer_update_proc(Layer *layer, GContext *ctx) {
 #endif
     
     // Dotted x and y axes
-#ifdef PBL_COLOR
-    graphics_context_set_stroke_color(ctx, GColorLightGray);
-#else
-    graphics_context_set_stroke_color(ctx, GColorBlack);
-#endif
+    graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
     graphics_context_set_stroke_width(ctx, 1);
     for (int y = padding; y <= bounds.size.h - padding; y++) {
         if (y % 3 == 0) graphics_draw_pixel(ctx, GPoint(padding, y));
@@ -66,11 +58,8 @@ static void graph_layer_update_proc(Layer *layer, GContext *ctx) {
 
     // Green if current >= open, red otherwise; black on B&W platforms
     bool is_up = d->closes[d->count - 1] >= d->closes[0];
-#ifdef PBL_COLOR
-    GColor line_color = is_up ? GColorGreen : GColorRed;
-#else
-    GColor line_color = GColorBlack;
-#endif
+
+    GColor line_color = PBL_IF_COLOR_ELSE(is_up ? GColorGreen : GColorRed, GColorBlack);
 
     graphics_context_set_stroke_color(ctx, line_color);
     graphics_context_set_stroke_width(ctx, 2);
@@ -84,11 +73,7 @@ static void graph_layer_update_proc(Layer *layer, GContext *ctx) {
     }
 
     // Price + timeframe labels
-#ifdef PBL_COLOR
-    graphics_context_set_text_color(ctx, GColorLightGray);
-#else
-    graphics_context_set_text_color(ctx, GColorBlack);
-#endif
+    graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
     GFont small_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
     // char price_buf[10];
 
