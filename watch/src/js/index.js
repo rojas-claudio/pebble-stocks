@@ -19,12 +19,25 @@ var MESSAGETYPE = {
 
 var DEFAULT_WATCHLIST = ['SPY', 'GLD', 'CCJ', 'UEC', 'DNN'];
 
+function getWatchlist() {
+    var settings = {};
+    try {
+        var raw = localStorage.getItem('clay-settings');
+        if (raw) settings = JSON.parse(raw);
+    } catch (e) {}
+
+    var list = [];
+    for (var i = 1; i <= 10; i++) {
+        var val = ((settings['Ticker_' + i] || '') + '').trim().toUpperCase();
+        if (val) list.push(val);
+    }
+    return list.length ? list : DEFAULT_WATCHLIST;
+}
+
 function loadHistory(symbol, timeframe) {
     console.log("[PKJS][HISTORY] loadHistory called: " + symbol + " / " + timeframe);
 
-    var watchlist = localStorage.getItem('watchlist')
-        ? JSON.parse(localStorage.getItem('watchlist'))
-        : DEFAULT_WATCHLIST;
+    var watchlist = getWatchlist();
     var position = watchlist.indexOf(symbol);
     console.log("[PKJS][HISTORY] position=" + position + " queueSize=" + MessageQueue.size());
 
@@ -75,7 +88,6 @@ function loadWatchlist(watchlist) {
     var noConnectionSent = false;
 
     watchlist.forEach(function(symbol) {
-        // console.log('loading ' + symbol)
         api.fetchQuote(symbol, function(err, quote) {
             if (err && err.message === 'Network error') {
                 console.log("[Quote] No connection: " + symbol);
@@ -130,8 +142,7 @@ Pebble.addEventListener('ready', function() {
 
     MessageQueue.sendAppMessage({ 'Type': MESSAGETYPE.READY }, function() {
         console.log('[PKJS] Watch notified of PKJS Ready Event');
-        var watchlist = localStorage.getItem('watchlist') ? JSON.parse(localStorage.getItem('watchlist')) : DEFAULT_WATCHLIST;
-        loadWatchlist(watchlist);
+        loadWatchlist(getWatchlist());
     }, function(e) {
         console.log('[PKJS] Error notifying watch of PKJS Ready Event: ' + JSON.stringify(e));
     });
