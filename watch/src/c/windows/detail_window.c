@@ -4,11 +4,48 @@
 #include "../stocks.h"
 #include "../layers/graph_layer.h"
 
+typedef enum {
+    Timeframe1DAction = 0,
+    Timeframe1WAction,
+    Timeframe1MAction,
+    Timeframe3MAction,
+    TimeframeYTDAction,
+    Timeframe1YAction,
+    RefreshAction
+} ActionType;
+
+// -------------------------------------------------------------------------
+// Window
+// -------------------------------------------------------------------------
+
 static Window         *s_detail_window;
 static StatusBarLayer *s_status_bar_layer;
+
+// -------------------------------------------------------------------------
+// ActionMenu
+// -------------------------------------------------------------------------
+
+static ActionMenu *s_action_menu;
+static ActionMenuLevel *s_root_level, *s_timeframes_level;
+static ActionType s_current_type;
+
+// -------------------------------------------------------------------------
+// State
+// -------------------------------------------------------------------------
+
+static StockData_t s_current_quote;
+static int s_timeframe_index_key = 0;
+static int s_timeframe_index = 2;
+static const char *TIMEFRAMES[] = { "1D", "1W", "1M", "3M", "YTD", "1Y" };
+
+
+// -------------------------------------------------------------------------
+// Debug
+// -------------------------------------------------------------------------
+
 static Layer          *s_debug_divider_layer;
 
-/*
+/* 
     -----------------------------
     |            |              |
     |      1     |       2      |
@@ -23,41 +60,60 @@ static Layer          *s_debug_divider_layer;
     =============================
 */
 
-// 1 — symbol / price
+// -------------------------------------------------------------------------
+// 1
+// -------------------------------------------------------------------------
+
 static TextLayer *s_symbol_layer;
 static TextLayer *s_price_layer;
 static char       s_symbol_buffer[18];
 static char       s_price_buffer[18];
 
-// 2 — change % / change $
+// -------------------------------------------------------------------------
+// 2
+// -------------------------------------------------------------------------
+
 static TextLayer *s_change_percent_layer;
 static TextLayer *s_change_layer;
 static char       s_change_percent_buffer[18];
 static char       s_change_buffer[18];
 
-// 3 — graph
+// -------------------------------------------------------------------------
+// 3
+// -------------------------------------------------------------------------
+
 static GraphLayer *s_graph_layer;
 
-// State
-static StockData_t s_current_quote;
-
-// Actions
-static ActionMenu *s_action_menu;
-static ActionMenuLevel *s_root_level, *s_timeframe_level;
-
-static const char *TIMEFRAMES[] = { "1D", "1W", "1M", "3M", "YTD", "1Y" };
-#define TIMEFRAME_COUNT 6
-static int s_timeframe_index = 1;  // default: "1W"
-
 // -------------------------------------------------------------------------
-// Action Menu
+// ActionMenu
 // -------------------------------------------------------------------------
+
+static void action_performed_callback(ActionMenu *menu, const ActionMenuItem *action,
+                                                        void *context) {
+    s_current_type = (ActionType)action_menu_item_get_action_data(action);
+
+    if (s_current_type == RefreshAction) {
+        stocks_request_refresh();
+    } else {
+        s_timeframe_index = (int)s_current_type;
+
+        persist_write_int(s_timeframe_index_key, s_timeframe_index);
+
+        stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
+    }
+}
 
 static void init_action_menu(void) {
     s_root_level = action_menu_level_create(2);
 
-    action_menu_level_add_action(s_root_level, "Timeframe", NULL, NULL);
-    action_menu_level_add_action(s_root_level, "Refresh", NULL, NULL);
+    action_menu_level_add_action(s_root_level, "Refresh", action_performed_callback, (void *)RefreshAction);
+
+    s_timeframes_level = action_menu_level_create(TIMEFRAME_COUNT);
+    action_menu_level_add_child(s_root_level, s_timeframes_level, "Graph");
+
+    for (int i = 0; i < TIMEFRAME_COUNT; i++) {
+        action_menu_level_add_action(s_timeframes_level, TIMEFRAMES[i], action_performed_callback, (void *)i);
+    }
 }
 
 // -------------------------------------------------------------------------
@@ -102,12 +158,9 @@ static void debug_divider_update_proc(Layer *layer, GContext *ctx) {
 // Button handlers — UP/DOWN cycle timeframes
 // -------------------------------------------------------------------------
 
-// static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
-//     s_timeframe_index = (s_timeframe_index + TIMEFRAME_COUNT - 1) % TIMEFRAME_COUNT;
-//     stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
-// }
-
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
+    bool is_up = s_current_quote.change[0] != '-';
+
     ActionMenuConfig config = (ActionMenuConfig) {
         .root_level = s_root_level,
         .colors = {
@@ -116,18 +169,20 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
         },
         .align = ActionMenuAlignCenter
     };
+
+    if (is_up) {
+        config.colors.background = GColorGreen;
+        config.colors.foreground = GColorWhite;
+    } else {
+        config.colors.background = GColorRed;
+        config.colors.foreground = GColorWhite;
+    }
+    
     s_action_menu = action_menu_open(&config);
 }
 
-// static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
-//     s_timeframe_index = (s_timeframe_index + 1) % TIMEFRAME_COUNT;
-//     stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
-// }
-
 static void click_config_provider(void *context) {
     window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
-    // window_single_click_subscribe(BUTTON_ID_UP,   up_click_handler);
-    // window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
 
 // -------------------------------------------------------------------------
@@ -163,7 +218,7 @@ static void detail_window_load(Window *window) {
                                 seg_w - x_offset,
                                 label_h);
     s_symbol_layer = text_layer_create(symbol_bounds);
-    snprintf(s_symbol_buffer, sizeof(s_symbol_buffer), "$%s", s_current_quote.symbol);
+    snprintf(s_symbol_buffer, sizeof(s_symbol_buffer), "%s", s_current_quote.symbol);
     text_layer_set_text(s_symbol_layer, s_symbol_buffer);
     text_layer_set_background_color(s_symbol_layer, GColorClear);
     text_layer_set_text_color(s_symbol_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
@@ -273,7 +328,8 @@ void detail_window_init(int position) {
     if (!quote) return;
 
     s_current_quote   = *quote;
-    s_timeframe_index = 1;  // default: "1W"
+    s_timeframe_index = 2; // default to 1M
+    s_timeframe_index = persist_read_int(s_timeframe_index_key);
 
     s_detail_window = window_create();
     window_set_click_config_provider(s_detail_window, click_config_provider);

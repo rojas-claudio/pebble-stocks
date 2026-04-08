@@ -4,6 +4,8 @@
 
 #include "../stocks.h"
 
+#define TIMEFRAME_COUNT 6
+
 Window     *detail_window_get_window(void);
 const char *detail_window_get_symbol(void);
 
