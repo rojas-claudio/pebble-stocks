@@ -27,14 +27,43 @@ static int s_total_quotes = 0;
 
 static bool s_watchlist_initialized = false;
 
+// -------------------------------------------------------------------------
 // Public
+// -------------------------------------------------------------------------
 
 StockData_t *stocks_get_quote(int position) {
     if (position < 0 || position >= s_total_quotes) return NULL;
     return &s_watchlist[position];
 }
 
+void stocks_request_refresh(void) {
+    DictionaryIterator *iter;
+    AppMessageResult result = app_message_outbox_begin(&iter);
+    if (result != APP_MSG_OK) return;
+
+    dict_write_int8(iter, MESSAGE_KEY_Type, MSG_TYPE_REFRESH);
+
+    app_message_outbox_send();
+}
+
+void stocks_request_history(const char *symbol, const char *timeframe) {
+    DictionaryIterator *iter;
+    AppMessageResult result = app_message_outbox_begin(&iter);
+    if (result != APP_MSG_OK) return;
+
+    dict_write_int8(iter, MESSAGE_KEY_Type, MSG_TYPE_HISTORY_REQUEST);
+    dict_write_cstring(iter, MESSAGE_KEY_Symbol, symbol);
+    dict_write_cstring(iter, MESSAGE_KEY_Timeframe, timeframe);
+
+    APP_LOG(APP_LOG_LEVEL_INFO, "[WATCH][HISTORY] Requesting Symbol: %s, Timeframe: %s",
+            symbol, timeframe);
+
+    app_message_outbox_send();
+}
+
+// -------------------------------------------------------------------------
 // Handlers for incoming data
+// -------------------------------------------------------------------------
 
 static void handle_symbol_data(DictionaryIterator *iterator) {
     Tuple *position_tuple       = dict_find(iterator, MESSAGE_KEY_WatchlistPosition);
@@ -63,6 +92,7 @@ static void handle_symbol_data(DictionaryIterator *iterator) {
 
     StockData_t *quote = &s_watchlist[position];
     quote->position = position;
+    quote->size = size;
 
     strncpy(quote->symbol, symbol_tuple->value->cstring, sizeof(quote->symbol) - 1);
     
@@ -80,7 +110,6 @@ static void handle_symbol_data(DictionaryIterator *iterator) {
 
     s_total_quotes = size;
     s_received_quotes++;
-
 }
 
 static void handle_history_data(DictionaryIterator *iterator) {
@@ -115,24 +144,9 @@ static void handle_history_data(DictionaryIterator *iterator) {
     strncpy(quote->history->timeframe, timeframe, sizeof(quote->history->timeframe) - 1);
 }
 
-// History
-
-void stocks_request_history(const char *symbol, const char *timeframe) {
-    DictionaryIterator *iter;
-    AppMessageResult result = app_message_outbox_begin(&iter);
-    if (result != APP_MSG_OK) return;
-
-    dict_write_int8(iter, MESSAGE_KEY_Type, MSG_TYPE_HISTORY_REQUEST);
-    dict_write_cstring(iter, MESSAGE_KEY_Symbol, symbol);
-    dict_write_cstring(iter, MESSAGE_KEY_Timeframe, timeframe);
-
-    APP_LOG(APP_LOG_LEVEL_INFO, "[WATCH][HISTORY] Requesting Symbol: %s, Timeframe: %s",
-            symbol, timeframe);
-
-    app_message_outbox_send();
-}
-
+// -------------------------------------------------------------------------
 // AppMessage
+// -------------------------------------------------------------------------
 
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
     Tuple *type_tuple = dict_find(iterator, MESSAGE_KEY_Type);
@@ -148,9 +162,6 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
         }
     }
 }
-
-// static void inbox_dropped_callback(AppMessageResult reason, void *context) {
-// }
 
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
     Tuple *type_tuple = dict_find(iterator, MESSAGE_KEY_Type);
@@ -177,6 +188,7 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         }
         case MSG_TYPE_LOADED: {
             if (!s_watchlist_initialized) {
+                s_received_quotes = 0;
                 s_watchlist_initialized = true;
                 splash_update_progress(100);
                 splash_deinit();
@@ -193,7 +205,10 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
                     splash_update_progress(progress);
                 }
             } else {
-                // TODO: handle refresh
+                handle_symbol_data(iterator);
+                if (s_received_quotes == s_total_quotes) {
+                    // watchlist_window_reload();
+                }
             }
             
             break;
@@ -226,16 +241,16 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     }
 }
 
-// Main app
+// -------------------------------------------------------------------------
+// Stocks
+// -------------------------------------------------------------------------
 
 static void stocks_deinit(void) {
     app_message_deregister_callbacks();
 }
 
 static void stocks_init(void) {
-    // app_message_register_outbox_failed(outbox_failed_callback);
     app_message_register_outbox_sent(outbox_sent_callback);
-    // app_message_register_inbox_dropped(inbox_dropped_callback);
     app_message_register_inbox_received(inbox_received_callback);
 
     app_message_open(512, 64);
