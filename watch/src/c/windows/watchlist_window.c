@@ -2,6 +2,7 @@
 
 #include "watchlist_window.h"
 #include "detail_window.h"
+#include "disclaimer_window.h"
 #include "../stocks.h"
 
 static Window       *s_watchlist_window;
@@ -14,20 +15,25 @@ static uint16_t get_num_sections_callback(MenuLayer *menu_layer, void *data) {
 
 static uint16_t get_num_rows_callback(MenuLayer *menu_layer, uint16_t section_index, void *data) {
     if (section_index == 0) return s_watchlist_size;
-    return 0;
+    return 1; // section 1: Disclaimers
 }
 
-// static void on_quote_updated(int position) {
-//     if (s_tickers_layer) {
-//         menu_layer_reload_data(s_tickers_layer);
-//     }
-// }
-
 static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *data) {
+    GRect bounds = layer_get_bounds(cell_layer);
+
+    if (cell_index->section == 1) {
+#ifdef PBL_COLOR
+        graphics_context_set_text_color(ctx, GColorWhite);
+        graphics_context_set_fill_color(ctx,
+            menu_cell_layer_is_highlighted(cell_layer) ? GColorLightGray : GColorBlack);
+#endif
+        graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+        menu_cell_basic_draw(ctx, cell_layer, "Disclaimers", NULL, NULL);
+        return;
+    }
+
     StockData_t *quote = stocks_get_quote(cell_index->row);
     if (!quote) return;
-
-    GRect bounds = layer_get_bounds(cell_layer);
 
     char title[18], subtitle[18];
     snprintf(title, sizeof(title), "%s", quote->symbol);
@@ -59,6 +65,10 @@ static int16_t get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *cell_i
 }
 
 static void select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *data) {
+    if (cell_index->section == 1) {
+        disclaimer_window_init(NULL);
+        return;
+    }
     detail_window_init(cell_index->row);
 }
 
@@ -79,10 +89,10 @@ static void watchlist_window_load(Window *window) {
 
     menu_layer_set_callbacks(s_tickers_layer, NULL, (MenuLayerCallbacks) {
         .get_num_sections = get_num_sections_callback,
-        .get_num_rows = get_num_rows_callback,
-        .draw_row = draw_row_callback,
-        .get_cell_height = get_cell_height_callback,
-        .select_click = select_callback
+        .get_num_rows     = get_num_rows_callback,
+        .draw_row         = draw_row_callback,
+        .get_cell_height  = get_cell_height_callback,
+        .select_click     = select_callback,
     });
 
     layer_add_child(window_layer, menu_layer_get_layer(s_tickers_layer));
@@ -101,7 +111,7 @@ void watchlist_window_init(int quote_count) {
 
     s_watchlist_window = window_create();
     window_set_window_handlers(s_watchlist_window, (WindowHandlers) {
-        .load = watchlist_window_load,
+        .load   = watchlist_window_load,
         .unload = watchlist_window_unload,
     });
     window_set_background_color(s_watchlist_window, PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
