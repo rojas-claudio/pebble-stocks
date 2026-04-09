@@ -6,9 +6,6 @@
 #include "windows/splash_window.h"
 #include "windows/watchlist_window.h"
 #include "windows/error_window.h"
-#include "windows/detail_window.h"
-
-#include "layers/graph_layer.h"
 
 typedef enum {
     MSG_TYPE_ERROR = 0,
@@ -24,8 +21,10 @@ typedef enum {
 static StockData_t s_watchlist[10];
 static int s_received_quotes = 0;
 static int s_total_quotes = 0;
-
 static bool s_watchlist_initialized = false;
+
+static StockQuoteUpdatedCallback s_quote_cb = NULL;
+static StockHistoryUpdatedCallback s_history_cb = NULL;
 
 // -------------------------------------------------------------------------
 // Public
@@ -59,6 +58,14 @@ void stocks_request_history(const char *symbol, const char *timeframe) {
             symbol, timeframe);
 
     app_message_outbox_send();
+}
+
+void stocks_on_quote_updated(StockQuoteUpdatedCallback cb) {
+    s_quote_cb = cb;
+}
+
+void stocks_on_history_updated(StockHistoryUpdatedCallback cb) {
+    s_history_cb = cb;
 }
 
 // -------------------------------------------------------------------------
@@ -199,39 +206,26 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         case MSG_TYPE_SYMBOLDATA: {
             handle_symbol_data(iterator);
 
+            Tuple *pos_tuple = dict_find(iterator, MESSAGE_KEY_WatchlistPosition);
+            int position = pos_tuple ? (int)pos_tuple->value->int32 : -1;
+
             if (!s_watchlist_initialized) {
-                if (s_received_quotes > 0) { // between 25 and 100% as quotes arrive
+                if (s_received_quotes > 0) {
                     int progress = 25 + (75 * s_received_quotes / s_total_quotes);
                     splash_update_progress(progress);
                 }
             } else {
-                handle_symbol_data(iterator);
-                if (s_received_quotes == s_total_quotes) {
-                    // watchlist_window_reload();
-                }
+                if (s_quote_cb) s_quote_cb(position);
             }
-            
             break;
         }
         case MSG_TYPE_HISTORY_DATA: {
             APP_LOG(APP_LOG_LEVEL_DEBUG, "Received history data");
-            Tuple *symbol_tuple       = dict_find(iterator, MESSAGE_KEY_Symbol);
-            Tuple *timeframe_tuple    = dict_find(iterator, MESSAGE_KEY_Timeframe);
-            Tuple *history_data_tuple = dict_find(iterator, MESSAGE_KEY_HistoryData);
-
-            if (!symbol_tuple || !timeframe_tuple || !history_data_tuple) {
-                return;
-            }
-
-            // Always store — graph populates immediately on next open if cached
             handle_history_data(iterator);
 
-            // Notify detail_window if it's the active window showing this symbol
-            bool is_detail_active  = window_stack_get_top_window() == detail_window_get_window();
-            bool is_correct_symbol = strcmp(symbol_tuple->value->cstring, detail_window_get_symbol()) == 0;
-            if (is_detail_active && is_correct_symbol) {
-                detail_window_on_history_updated();
-            }
+            Tuple *pos_tuple = dict_find(iterator, MESSAGE_KEY_WatchlistPosition);
+            int position = pos_tuple ? (int)pos_tuple->value->int32 : -1;
+            if (s_history_cb) s_history_cb(position);
 
             break;
         }

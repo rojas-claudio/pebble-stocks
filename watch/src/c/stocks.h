@@ -23,11 +23,11 @@ typedef struct StockData {
 } StockData_t;
 
 // callbacks
-// typedef void (*StockQuoteUpdatedCallback)(int position);
-// typedef void (*StockHistoryUpdatedCallback)(const char *symbol);
+typedef void (*StockQuoteUpdatedCallback)(int position);
+typedef void (*StockHistoryUpdatedCallback)(int position);
 
-// void stocks_on_quote_updated(StockQuoteUpdatedCallback cb);
-// void stocks_on_history_updated(StockHistoryUpdatedCallback cb);
+void stocks_on_quote_updated(StockQuoteUpdatedCallback cb);
+void stocks_on_history_updated(StockHistoryUpdatedCallback cb);
 
 // accessors
 StockData_t *stocks_get_quote(int position);
