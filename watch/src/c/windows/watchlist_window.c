@@ -72,6 +72,18 @@ static void select_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *
     detail_window_init(cell_index->row);
 }
 
+static void on_quote_updated(int position) {
+    if (s_tickers_layer) menu_layer_reload_data(s_tickers_layer);
+}
+
+static void watchlist_window_appear(Window *window) {
+    stocks_on_quote_updated(on_quote_updated);
+}
+
+static void watchlist_window_disappear(Window *window) {
+    stocks_on_quote_updated(NULL);
+}
+
 static void watchlist_window_load(Window *window) {
     Layer *window_layer = window_get_root_layer(window);
     GRect bounds = layer_get_bounds(window_layer);
@@ -111,8 +123,10 @@ void watchlist_window_init(int quote_count) {
 
     s_watchlist_window = window_create();
     window_set_window_handlers(s_watchlist_window, (WindowHandlers) {
-        .load   = watchlist_window_load,
-        .unload = watchlist_window_unload,
+        .load      = watchlist_window_load,
+        .unload    = watchlist_window_unload,
+        .appear    = watchlist_window_appear,
+        .disappear = watchlist_window_disappear,
     });
     window_set_background_color(s_watchlist_window, PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
     window_stack_push(s_watchlist_window, true);

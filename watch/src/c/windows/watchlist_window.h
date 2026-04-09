@@ -1,3 +1,5 @@
+#pragma once
+
 #include <pebble.h>
 
 #include "../stocks.h"
