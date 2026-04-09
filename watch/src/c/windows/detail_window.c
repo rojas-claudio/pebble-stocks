@@ -106,7 +106,7 @@ static void action_performed_callback(ActionMenu *menu, const ActionMenuItem *ac
 static void init_action_menu(void) {
     s_root_level = action_menu_level_create(2);
 
-    action_menu_level_add_action(s_root_level, "Refresh", action_performed_callback, (void *)RefreshAction);
+    //action_menu_level_add_action(s_root_level, "Refresh", action_performed_callback, (void *)RefreshAction);
 
     s_timeframes_level = action_menu_level_create(TIMEFRAME_COUNT);
     action_menu_level_add_child(s_root_level, s_timeframes_level, "Graph");
@@ -128,7 +128,7 @@ const char *detail_window_get_symbol(void) {
     return s_current_quote.symbol;
 }
 
-void detail_window_on_history_updated(void) {
+static void refresh_history(void) {
     StockData_t *live = stocks_get_quote((int)s_current_quote.position);
     if (live) s_current_quote = *live;
 
@@ -139,6 +139,36 @@ void detail_window_on_history_updated(void) {
                              s_current_quote.history->timeframe);
         layer_mark_dirty(s_graph_layer);
     }
+}
+
+static void refresh_quote(void) {
+    StockData_t *live = stocks_get_quote((int)s_current_quote.position);
+    if (!live) return;
+    s_current_quote = *live;
+
+    snprintf(s_price_buffer,          sizeof(s_price_buffer),         "$%s",  s_current_quote.price);
+    snprintf(s_change_buffer,         sizeof(s_change_buffer),         "%s",   s_current_quote.change);
+    snprintf(s_change_percent_buffer, sizeof(s_change_percent_buffer), "%s%%", s_current_quote.changePercent);
+
+    bool   is_negative  = s_current_quote.change[0] == '-';
+    bool   is_zero      = s_current_quote.change[0] == '0';
+    GColor change_color = PBL_IF_COLOR_ELSE(is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen), GColorBlack);
+    text_layer_set_text_color(s_change_layer,         change_color);
+    text_layer_set_text_color(s_change_percent_layer, change_color);
+
+    layer_mark_dirty(text_layer_get_layer(s_price_layer));
+    layer_mark_dirty(text_layer_get_layer(s_change_layer));
+    layer_mark_dirty(text_layer_get_layer(s_change_percent_layer));
+}
+
+static void on_quote_updated(int position) {
+    if (position != (int)s_current_quote.position) return;
+    refresh_quote();
+}
+
+static void on_history_updated(int position) {
+    if (position != (int)s_current_quote.position) return;
+    refresh_history();
 }
 
 // -------------------------------------------------------------------------
@@ -188,6 +218,16 @@ static void click_config_provider(void *context) {
 // -------------------------------------------------------------------------
 // Window lifecycle
 // -------------------------------------------------------------------------
+
+static void detail_window_appear(Window *window) {
+    stocks_on_quote_updated(on_quote_updated);
+    stocks_on_history_updated(on_history_updated);
+}
+
+static void detail_window_disappear(Window *window) {
+    stocks_on_quote_updated(NULL);
+    stocks_on_history_updated(NULL);
+}
 
 static void detail_window_load(Window *window) {
     int y_offset = STATUS_BAR_LAYER_HEIGHT;
@@ -334,8 +374,10 @@ void detail_window_init(int position) {
     s_detail_window = window_create();
     window_set_click_config_provider(s_detail_window, click_config_provider);
     window_set_window_handlers(s_detail_window, (WindowHandlers) {
-        .load   = detail_window_load,
-        .unload = detail_window_unload,
+        .load      = detail_window_load,
+        .unload    = detail_window_unload,
+        .appear    = detail_window_appear,
+        .disappear = detail_window_disappear,
     });
     window_set_background_color(s_detail_window, PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
 
