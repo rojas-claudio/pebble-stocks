@@ -130,11 +130,16 @@ function loadWatchlist(watchlist) {
 Pebble.addEventListener('appmessage', function(e) {
     var dict = e.payload;
 
-    if (dict.Type !== MESSAGETYPE.HISTORYREQUEST) return;
+    if (dict.Type == MESSAGETYPE.HISTORYREQUEST) {
+        console.log('[PKJS][HISTORY] Got request for ' + dict.Symbol + ' over ' + dict.Timeframe);
+        loadHistory(dict.Symbol, dict.Timeframe);
+    } else if (dict.Type == MESSAGETYPE.REFRESH) {
+        console.log('[PKJS] Got refresh request from watch');
+        loadWatchlist(getWatchlist());
+    } else {
+        console.log('[PKJS] Received unknown message: ' + JSON.stringify(dict));
+    }
 
-    console.log('[PKJS][HISTORY] Got request for ' + dict.Symbol + ' over ' + dict.Timeframe);
-
-    loadHistory(dict.Symbol, dict.Timeframe);
 });
 
 Pebble.addEventListener('ready', function() {
