@@ -106,7 +106,7 @@ static void action_performed_callback(ActionMenu *menu, const ActionMenuItem *ac
 static void init_action_menu(void) {
     s_root_level = action_menu_level_create(2);
 
-    //action_menu_level_add_action(s_root_level, "Refresh", action_performed_callback, (void *)RefreshAction);
+    action_menu_level_add_action(s_root_level, "Refresh", action_performed_callback, (void *)RefreshAction);
 
     s_timeframes_level = action_menu_level_create(TIMEFRAME_COUNT);
     action_menu_level_add_child(s_root_level, s_timeframes_level, "Graph");
