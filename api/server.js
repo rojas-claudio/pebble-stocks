@@ -34,7 +34,7 @@ app.use(async (req, res, next) => {
 //
 ///////////////////////////////////////////////////////
 
-const QUOTE_TTL = 15; // minutes
+const QUOTE_TTL = 5; // minutes — matches cron refresh interval
 
 const HISTORY_TTL = {
   '1D':  5,
@@ -134,11 +134,25 @@ app.get('/api/tickers/:ticker/history', async (req, res) => {
   }
 });
 
+// Returns true during regular market hours (9:30–16:00 ET, Mon–Fri)
+function isMarketOpen() {
+  const et  = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const day = et.getDay();
+  if (day === 0 || day === 6) return false;
+  const minutes = et.getHours() * 60 + et.getMinutes();
+  return minutes >= 570 && minutes < 960; // 9:30–16:00
+}
+
 // POST /api/refresh — refreshes all cached quotes, called by cron
 app.post('/api/refresh', async (req, res) => {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers['x-cron-secret'] !== secret) {
     return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  if (!isMarketOpen()) {
+    console.log('[refresh] Market closed — skipping');
+    return res.json({ skipped: true, reason: 'market closed' });
   }
 
   const tickers = await Ticker.find({}).select('ticker').lean();
