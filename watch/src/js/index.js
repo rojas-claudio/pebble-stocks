@@ -17,7 +17,7 @@ var MESSAGETYPE = {
     REFRESH: 7,
 };
 
-var DEFAULT_WATCHLIST = ['SPY', 'GLD', 'CCJ', 'UEC', 'DNN'];
+var DEFAULT_WATCHLIST = ['SPY', 'AAPL', 'MSFT', 'GOOG', 'META'];
 
 function getWatchlist() {
     var settings = {};
