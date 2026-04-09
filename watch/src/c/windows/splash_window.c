@@ -22,7 +22,7 @@ static void window_load(Window *window) {
 
 static void window_unload(Window *window) {
     progress_layer_destroy(s_progress_layer);
-    window_destroy(s_window);
+    s_progress_layer = NULL;
 }
 
 void splash_update_progress(int progress_percent) {
@@ -35,6 +35,8 @@ void splash_update_progress(int progress_percent) {
 
 void splash_deinit(void) {
     window_stack_remove(s_window, true);
+    window_destroy(s_window);
+    s_window = NULL;
 }
 
 void splash_init(void) {
