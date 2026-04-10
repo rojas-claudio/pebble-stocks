@@ -177,11 +177,15 @@ static void on_history_updated(int position) {
 
 static void debug_divider_update_proc(Layer *layer, GContext *ctx) {
     GRect bounds    = layer_get_bounds(layer);
-    int   top_third = bounds.size.h / 3;
+#if defined(PBL_PLATFORM_GABBRO)
+    int   top       = bounds.size.h / 4;
+#else
+    int   top       = bounds.size.h / 3;
+#endif
     graphics_context_set_stroke_color(ctx, GColorRed);
     graphics_context_set_stroke_width(ctx, 1);
-    graphics_draw_line(ctx, GPoint(0, top_third), GPoint(bounds.size.w, top_third));
-    graphics_draw_line(ctx, GPoint(bounds.size.w / 2, 0), GPoint(bounds.size.w / 2, top_third));
+    graphics_draw_line(ctx, GPoint(0, top), GPoint(bounds.size.w, top));
+    graphics_draw_line(ctx, GPoint(bounds.size.w / 2, 0), GPoint(bounds.size.w / 2, top));
 }
 
 // -------------------------------------------------------------------------
@@ -230,119 +234,170 @@ static void detail_window_disappear(Window *window) {
 }
 
 static void detail_window_load(Window *window) {
-    int y_offset = STATUS_BAR_LAYER_HEIGHT;
-    int x_offset = STATUS_BAR_LAYER_HEIGHT / 2;
-
     Layer *window_layer  = window_get_root_layer(window);
     GRect  window_bounds = layer_get_bounds(window_layer);
-    int    usable_h      = window_bounds.size.h - y_offset;
-    int    top_section_h = usable_h / 3;
 
-    // Status bar
-    s_status_bar_layer = status_bar_layer_create();
+    // -------------------------------------------------------------------------
+    // Layout constants
+    // -------------------------------------------------------------------------
 
-#ifdef PBL_COLOR
-    status_bar_layer_set_colors(s_status_bar_layer, GColorBlack, GColorWhite);
-#else
-    status_bar_layer_set_colors(s_status_bar_layer, GColorWhite, GColorBlack);
+    int y_offset      = STATUS_BAR_LAYER_HEIGHT;
+    int x_offset      = STATUS_BAR_LAYER_HEIGHT / 2;
+
+    int usable_h      = window_bounds.size.h - y_offset;
+
+    int top_section_h = usable_h / 3;
+    int seg_w         = window_bounds.size.w / 2;
+    int label_h       = top_section_h / 2;
+
+#if defined(PBL_PLATFORM_GABBRO)
+    top_section_h = usable_h / 4;
+    label_h       = top_section_h / 2;
 #endif
 
-    status_bar_layer_set_separator_mode(s_status_bar_layer, StatusBarLayerSeparatorModeDotted);
-
-    // ---- Segment 1: symbol (top half) + price (bottom half) ----
-    int seg_w   = window_bounds.size.w / 2;
-    int label_h = top_section_h / 2;
+    // -------------------------------------------------------------------------
+    // Bounds
+    // -------------------------------------------------------------------------
 
     GRect symbol_bounds = GRect(window_bounds.origin.x + x_offset,
                                 window_bounds.origin.y + y_offset,
                                 seg_w - x_offset,
                                 label_h);
+    GRect price_bounds = GRect(window_bounds.origin.x + x_offset,
+                               symbol_bounds.origin.y + label_h,
+                               seg_w - x_offset,
+                               top_section_h - label_h);
+    GRect change_pct_bounds = GRect(seg_w,
+                                    window_bounds.origin.y + y_offset,
+                                    seg_w - x_offset,
+                                    label_h);
+    GRect change_bounds = GRect(seg_w,
+                                change_pct_bounds.origin.y + label_h,
+                                seg_w - x_offset,
+                                top_section_h - label_h);
+    GRect graph_bounds = GRect(window_bounds.origin.x,
+                               window_bounds.origin.y + y_offset + top_section_h,
+                               window_bounds.size.w,
+                               usable_h - top_section_h);
+    GRect debug_bounds = GRect(window_bounds.origin.x,
+                               window_bounds.origin.y + y_offset,
+                               window_bounds.size.w,
+                               usable_h);
+
+#if defined(PBL_ROUND)
+    symbol_bounds.size.w   = window_bounds.size.w;
+    symbol_bounds.size.h   = top_section_h / 2;
+    symbol_bounds.origin.x = 0;
+
+    price_bounds.origin.y = symbol_bounds.origin.y + symbol_bounds.size.h;
+    price_bounds.size.w    = seg_w - x_offset;
+
+    change_bounds.size.w   = seg_w - x_offset;
+    change_bounds.origin.x = seg_w;
+#endif
+
+    // -------------------------------------------------------------------------
+    // Colors
+    // -------------------------------------------------------------------------
+
+    bool   is_negative  = s_current_quote.change[0] == '-';
+    bool   is_zero      = s_current_quote.change[0] == '0';
+    GColor change_color = PBL_IF_COLOR_ELSE(
+        is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen),
+        GColorBlack);
+
+    // -------------------------------------------------------------------------
+    // Fonts
+    // -------------------------------------------------------------------------
+
+#if PBL_PLATFORM_EMERY || PBL_PLATFORM_GABBRO
+    GFont font_large = fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD);
+    GFont font_small = fonts_get_system_font(FONT_KEY_GOTHIC_24);
+#else
+    GFont font_large = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+    GFont font_small = fonts_get_system_font(FONT_KEY_GOTHIC_18);
+#endif
+
+    // -------------------------------------------------------------------------
+    // Status bar
+    // -------------------------------------------------------------------------
+
+    s_status_bar_layer = status_bar_layer_create();
+    status_bar_layer_set_colors(s_status_bar_layer,
+        PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite),
+        PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
+    status_bar_layer_set_separator_mode(s_status_bar_layer, StatusBarLayerSeparatorModeDotted);
+
+    // -------------------------------------------------------------------------
+    // Segment 1 — symbol + price
+    // -------------------------------------------------------------------------
+
     s_symbol_layer = text_layer_create(symbol_bounds);
     snprintf(s_symbol_buffer, sizeof(s_symbol_buffer), "%s", s_current_quote.symbol);
     text_layer_set_text(s_symbol_layer, s_symbol_buffer);
     text_layer_set_background_color(s_symbol_layer, GColorClear);
     text_layer_set_text_color(s_symbol_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
-    text_layer_set_text_alignment(s_symbol_layer, GTextAlignmentLeft);
+    text_layer_set_text_alignment(s_symbol_layer, PBL_IF_RECT_ELSE(GTextAlignmentLeft, GTextAlignmentCenter));
+    text_layer_set_font(s_symbol_layer, font_large);
 
-    GRect price_bounds = GRect(window_bounds.origin.x + x_offset,
-                               symbol_bounds.origin.y + label_h,
-                               seg_w - x_offset,
-                               top_section_h - label_h);
     s_price_layer = text_layer_create(price_bounds);
     snprintf(s_price_buffer, sizeof(s_price_buffer), "$%s", s_current_quote.price);
     text_layer_set_text(s_price_layer, s_price_buffer);
     text_layer_set_background_color(s_price_layer, GColorClear);
     text_layer_set_text_color(s_price_layer, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
-    text_layer_set_text_alignment(s_price_layer, GTextAlignmentLeft);
+    text_layer_set_text_alignment(s_price_layer, PBL_IF_RECT_ELSE(GTextAlignmentLeft, GTextAlignmentRight));
+    text_layer_set_font(s_price_layer, font_small);
 
-    // ---- Segment 2: change % (top half) + change $ (bottom half) ----
-    bool   is_negative  = s_current_quote.change[0] == '-';
-    bool   is_zero      = s_current_quote.change[0] == '0';
-    GColor change_color = PBL_IF_COLOR_ELSE(is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen), GColorBlack);
-    GRect change_pct_bounds = GRect(window_bounds.size.w / 2,
-                                    window_bounds.origin.y + y_offset,
-                                    seg_w - x_offset,
-                                    label_h);
+    // -------------------------------------------------------------------------
+    // Segment 2 — change % + change $
+    // -------------------------------------------------------------------------
+
     s_change_percent_layer = text_layer_create(change_pct_bounds);
-    snprintf(s_change_percent_buffer, sizeof(s_change_percent_buffer),
-             "%s%%", s_current_quote.changePercent);
+    snprintf(s_change_percent_buffer, sizeof(s_change_percent_buffer), "%s%%", s_current_quote.changePercent);
     text_layer_set_text(s_change_percent_layer, s_change_percent_buffer);
     text_layer_set_background_color(s_change_percent_layer, GColorClear);
     text_layer_set_text_color(s_change_percent_layer, change_color);
-    text_layer_set_text_alignment(s_change_percent_layer, GTextAlignmentRight);
+    text_layer_set_text_alignment(s_change_percent_layer, GTextAlignmentLeft);
+    text_layer_set_font(s_change_percent_layer, font_large);
 
-    GRect change_bounds = GRect(window_bounds.size.w / 2,
-                                change_pct_bounds.origin.y + label_h,
-                                seg_w - x_offset,
-                                top_section_h - label_h);
     s_change_layer = text_layer_create(change_bounds);
     snprintf(s_change_buffer, sizeof(s_change_buffer), "%s", s_current_quote.change);
     text_layer_set_text(s_change_layer, s_change_buffer);
     text_layer_set_background_color(s_change_layer, GColorClear);
     text_layer_set_text_color(s_change_layer, change_color);
-    text_layer_set_text_alignment(s_change_layer, GTextAlignmentRight);
+    text_layer_set_text_alignment(s_change_layer, GTextAlignmentLeft);
+    text_layer_set_font(s_change_layer, font_small);
 
-    // ---- Segment 3: graph ----
-    GRect graph_bounds = GRect(window_bounds.origin.x,
-                               window_bounds.origin.y + y_offset + top_section_h,
-                               window_bounds.size.w,
-                               usable_h - top_section_h);
+    // -------------------------------------------------------------------------
+    // Segment 3 — graph
+    // -------------------------------------------------------------------------
+
     s_graph_layer = graph_layer_create(graph_bounds);
-
-    // Populate immediately if history is already cached for this symbol
     if (s_current_quote.history && s_current_quote.history->count > 0) {
-        APP_LOG(APP_LOG_LEVEL_DEBUG, "History already cached for %s, populating graph immediately", s_current_quote.symbol);
+        APP_LOG(APP_LOG_LEVEL_DEBUG, "History cached for %s, populating graph", s_current_quote.symbol);
         graph_layer_set_data(s_graph_layer,
                              s_current_quote.history->closes,
                              s_current_quote.history->count,
                              s_current_quote.history->timeframe);
     }
 
-    // Fonts
-#if PBL_PLATFORM_EMERY || PBL_PLATFORM_GABBRO
-    text_layer_set_font(s_symbol_layer,        fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-    text_layer_set_font(s_price_layer,          fonts_get_system_font(FONT_KEY_GOTHIC_24));
-    text_layer_set_font(s_change_percent_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-    text_layer_set_font(s_change_layer,         fonts_get_system_font(FONT_KEY_GOTHIC_24));
-#else
-    text_layer_set_font(s_symbol_layer,        fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-    text_layer_set_font(s_price_layer,          fonts_get_system_font(FONT_KEY_GOTHIC_18));
-    text_layer_set_font(s_change_percent_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-    text_layer_set_font(s_change_layer,         fonts_get_system_font(FONT_KEY_GOTHIC_18));
-#endif
+    // -------------------------------------------------------------------------
+    // Debug divider (disabled by default)
+    // -------------------------------------------------------------------------
 
-    // Debug divider (keep off by default)
-    GRect usable_bounds = GRect(window_bounds.origin.x,
-                                window_bounds.origin.y + y_offset,
-                                window_bounds.size.w,
-                                usable_h);
-    s_debug_divider_layer = layer_create(usable_bounds);
+    s_debug_divider_layer = layer_create(debug_bounds);
     layer_set_update_proc(s_debug_divider_layer, debug_divider_update_proc);
+
+    // -------------------------------------------------------------------------
+    // Layer hierarchy
+    // -------------------------------------------------------------------------
 
     layer_add_child(window_layer, status_bar_layer_get_layer(s_status_bar_layer));
     layer_add_child(window_layer, text_layer_get_layer(s_symbol_layer));
     layer_add_child(window_layer, text_layer_get_layer(s_price_layer));
+#if defined(PBL_RECT)
     layer_add_child(window_layer, text_layer_get_layer(s_change_percent_layer));
+#endif
     layer_add_child(window_layer, text_layer_get_layer(s_change_layer));
     layer_add_child(window_layer, s_graph_layer);
     // layer_add_child(window_layer, s_debug_divider_layer);
