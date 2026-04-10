@@ -26,12 +26,12 @@ static void graph_layer_update_proc(Layer *layer, GContext *ctx) {
         return;
     }
 
-#if PBL_PLATFORM_EMERY || PBL_PLATFORM_GABBRO
-    int padding = 18;
+#if defined(PBL_PLATFORM_GABBRO)
+    int padding = 4;
 #else
-    int padding = 12;
+    int padding = STATUS_BAR_LAYER_HEIGHT / 2;
 #endif
-    
+
     // Dotted x and y axes
     graphics_context_set_stroke_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
     graphics_context_set_stroke_width(ctx, 1);
@@ -75,21 +75,14 @@ static void graph_layer_update_proc(Layer *layer, GContext *ctx) {
     // Price + timeframe labels
     graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorLightGray, GColorBlack));
     GFont small_font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
-    // char price_buf[10];
-
-    // snprintf(price_buf, sizeof(price_buf), "$%d", (int)(max_val / 100));
-    // graphics_draw_text(ctx, price_buf, small_font,
-    //     GRect(padding + 2, padding, 44, 16),
-    //     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
-
-    // snprintf(price_buf, sizeof(price_buf), "$%d", (int)(min_val / 100));
-    // graphics_draw_text(ctx, price_buf, small_font,
-    //     GRect(padding + 2, padding + plot_h - 14, 44, 16),
-    //     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft, NULL);
 
     graphics_draw_text(ctx, d->timeframe, small_font,
-        GRect(bounds.size.w - padding - 26, bounds.size.h - padding - 18, 26, 18),
-        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight, NULL);
+        GRect(bounds.size.w - padding - 26,
+              bounds.size.h - padding - 18,
+              26,
+              18),
+        GTextOverflowModeTrailingEllipsis,
+        PBL_IF_RECT_ELSE(GTextAlignmentRight, GTextAlignmentCenter), NULL);
 }
 
 GraphLayer *graph_layer_create(GRect bounds) {
