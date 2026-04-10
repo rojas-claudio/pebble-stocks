@@ -150,11 +150,13 @@ static void refresh_quote(void) {
     snprintf(s_change_buffer,         sizeof(s_change_buffer),         "%s",   s_current_quote.change);
     snprintf(s_change_percent_buffer, sizeof(s_change_percent_buffer), "%s%%", s_current_quote.changePercent);
 
+#if defined(PBL_COLOR)
     bool   is_negative  = s_current_quote.change[0] == '-';
     bool   is_zero      = s_current_quote.change[0] == '0';
     GColor change_color = PBL_IF_COLOR_ELSE(is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen), GColorBlack);
     text_layer_set_text_color(s_change_layer,         change_color);
     text_layer_set_text_color(s_change_percent_layer, change_color);
+#endif
 
     layer_mark_dirty(text_layer_get_layer(s_price_layer));
     layer_mark_dirty(text_layer_get_layer(s_change_layer));
@@ -296,15 +298,29 @@ static void detail_window_load(Window *window) {
     change_bounds.origin.x = seg_w;
 #endif
 
+#if defined(PBL_PLATFORM_GABBRO)
+    graph_bounds.size.w = 184;
+    graph_bounds.size.h = 222 - top_section_h - y_offset;
+    graph_bounds.origin.x = 38;
+    graph_bounds.origin.y = 222 - (graph_bounds.size.h);
+#elif defined(PBL_PLATFORM_CHALK)
+    graph_bounds.size.w = 128;
+    graph_bounds.size.h = 154 - top_section_h - y_offset;
+    graph_bounds.origin.x = 26;
+    graph_bounds.origin.y = 154 - (graph_bounds.size.h);
+#endif
+
     // -------------------------------------------------------------------------
     // Colors
     // -------------------------------------------------------------------------
 
+#if defined(PBL_COLOR)
     bool   is_negative  = s_current_quote.change[0] == '-';
     bool   is_zero      = s_current_quote.change[0] == '0';
-    GColor change_color = PBL_IF_COLOR_ELSE(
-        is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen),
-        GColorBlack);
+    GColor change_color = is_negative ? GColorRed : (is_zero ? GColorLightGray : GColorGreen);
+#else
+    GColor change_color = GColorBlack;
+#endif
 
     // -------------------------------------------------------------------------
     // Fonts
@@ -357,7 +373,7 @@ static void detail_window_load(Window *window) {
     text_layer_set_text(s_change_percent_layer, s_change_percent_buffer);
     text_layer_set_background_color(s_change_percent_layer, GColorClear);
     text_layer_set_text_color(s_change_percent_layer, change_color);
-    text_layer_set_text_alignment(s_change_percent_layer, GTextAlignmentLeft);
+    text_layer_set_text_alignment(s_change_percent_layer, PBL_IF_RECT_ELSE(GTextAlignmentRight, GTextAlignmentLeft));
     text_layer_set_font(s_change_percent_layer, font_large);
 
     s_change_layer = text_layer_create(change_bounds);
@@ -365,7 +381,7 @@ static void detail_window_load(Window *window) {
     text_layer_set_text(s_change_layer, s_change_buffer);
     text_layer_set_background_color(s_change_layer, GColorClear);
     text_layer_set_text_color(s_change_layer, change_color);
-    text_layer_set_text_alignment(s_change_layer, GTextAlignmentLeft);
+    text_layer_set_text_alignment(s_change_layer, PBL_IF_RECT_ELSE(GTextAlignmentRight, GTextAlignmentLeft));
     text_layer_set_font(s_change_layer, font_small);
 
     // -------------------------------------------------------------------------
