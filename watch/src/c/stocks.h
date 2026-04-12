@@ -12,8 +12,9 @@ typedef struct StockHistory {
 } StockHistory_t;
 
 typedef struct StockData {
-    int32_t position;
-    int32_t size;
+    int8_t position;
+    int8_t size;
+    int8_t marketHours;
     char symbol[16];
     char price[16];
     char change[16];

@@ -79,6 +79,7 @@ static void handle_symbol_data(DictionaryIterator *iterator) {
     Tuple *price_tuple          = dict_find(iterator, MESSAGE_KEY_Price);
     Tuple *change_tuple         = dict_find(iterator, MESSAGE_KEY_Change);
     Tuple *change_percent_tuple = dict_find(iterator, MESSAGE_KEY_ChangePercent);
+    Tuple *hours_tuple          = dict_find(iterator, MESSAGE_KEY_Hours);
     Tuple *last_updated_tuple   = dict_find(iterator, MESSAGE_KEY_LastUpdated);
 
     if (!position_tuple         || 
@@ -87,12 +88,14 @@ static void handle_symbol_data(DictionaryIterator *iterator) {
         !price_tuple            || 
         !change_tuple           || 
         !change_percent_tuple   || 
+        !hours_tuple            ||
         !last_updated_tuple) {
         return;
     }
 
-    int position            = (int)position_tuple->value->int32;
-    int size                = (int)size_tuple->value->int32;
+    int position            = (int)position_tuple->value->int8;
+    int size                = (int)size_tuple->value->int8;
+    int hours               = (int)hours_tuple->value->int8;
     int change_val          = (int)change_tuple->value->int32;
     int change_percent_val  = (int)change_percent_tuple->value->int32;
     int last_updated_val    = (int)last_updated_tuple->value->int32;
@@ -100,6 +103,7 @@ static void handle_symbol_data(DictionaryIterator *iterator) {
     StockData_t *quote = &s_watchlist[position];
     quote->position = position;
     quote->size = size;
+    quote->marketHours = hours;
 
     strncpy(quote->symbol, symbol_tuple->value->cstring, sizeof(quote->symbol) - 1);
     
