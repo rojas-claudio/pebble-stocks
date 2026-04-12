@@ -17,7 +17,24 @@ var MESSAGETYPE = {
     REFRESH: 7,
 };
 
+var MARKETHOURS = {
+    PRE: 0,
+    OPEN: 1,
+    POST: 2,
+    CLOSED: 3
+};
+
 var DEFAULT_WATCHLIST = ['SPY', 'AAPL', 'MSFT', 'GOOG', 'META'];
+
+// -------------------------------------------------------------------------
+// Timeline
+// -------------------------------------------------------------------------
+
+
+
+// -------------------------------------------------------------------------
+// App
+// -------------------------------------------------------------------------
 
 function getWatchlist() {
     var settings = {};
@@ -106,6 +123,7 @@ function loadWatchlist(watchlist) {
                 'Price': err ? 0 : Math.round(quote.price * 100),
                 'Change': err ? 0 : Math.round(quote.change * 100),
                 'ChangePercent': err ? 0 : Math.round(quote.changePercent * 100),
+                'Hours': err ? MARKETHOURS.CLOSED : quote.marketHours,
                 'LastUpdated': err ? 0 : Math.floor(Date.now() / 1000)
             };
 
