@@ -3,6 +3,7 @@
 #include "detail_window.h"
 #include "../stocks.h"
 #include "../layers/graph_layer.h"
+#include "../layers/info_layer.h"
 
 typedef enum {
     Timeframe1DAction = 0,
@@ -19,7 +20,7 @@ typedef enum {
 // -------------------------------------------------------------------------
 
 static Window         *s_detail_window;
-static StatusBarLayer *s_status_bar_layer;
+static InfoLayer      *s_info_layer;
 
 // -------------------------------------------------------------------------
 // ActionMenu
@@ -83,38 +84,6 @@ static char       s_change_buffer[18];
 // -------------------------------------------------------------------------
 
 static GraphLayer *s_graph_layer;
-
-// -------------------------------------------------------------------------
-// ActionMenu
-// -------------------------------------------------------------------------
-
-static void action_performed_callback(ActionMenu *menu, const ActionMenuItem *action,
-                                                        void *context) {
-    s_current_type = (ActionType)action_menu_item_get_action_data(action);
-
-    if (s_current_type == RefreshAction) {
-        stocks_request_refresh();
-    } else {
-        s_timeframe_index = (int)s_current_type;
-
-        persist_write_int(s_timeframe_index_key, s_timeframe_index);
-
-        stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
-    }
-}
-
-static void init_action_menu(void) {
-    s_root_level = action_menu_level_create(2);
-
-    action_menu_level_add_action(s_root_level, "Refresh", action_performed_callback, (void *)RefreshAction);
-
-    s_timeframes_level = action_menu_level_create(TIMEFRAME_COUNT);
-    action_menu_level_add_child(s_root_level, s_timeframes_level, "Graph");
-
-    for (int i = 0; i < TIMEFRAME_COUNT; i++) {
-        action_menu_level_add_action(s_timeframes_level, TIMEFRAMES[i], action_performed_callback, (void *)i);
-    }
-}
 
 // -------------------------------------------------------------------------
 // Public API
@@ -191,6 +160,38 @@ static void debug_divider_update_proc(Layer *layer, GContext *ctx) {
 }
 
 // -------------------------------------------------------------------------
+// ActionMenu
+// -------------------------------------------------------------------------
+
+static void action_performed_callback(ActionMenu *menu, const ActionMenuItem *action,
+                                                        void *context) {
+    s_current_type = (ActionType)action_menu_item_get_action_data(action);
+
+    if (s_current_type == RefreshAction) {
+        stocks_request_refresh();
+    } else {
+        s_timeframe_index = (int)s_current_type;
+
+        persist_write_int(s_timeframe_index_key, s_timeframe_index);
+
+        stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
+    }
+}
+
+static void init_action_menu(void) {
+    s_root_level = action_menu_level_create(2);
+
+    action_menu_level_add_action(s_root_level, "Refresh", action_performed_callback, (void *)RefreshAction);
+
+    s_timeframes_level = action_menu_level_create(TIMEFRAME_COUNT);
+    action_menu_level_add_child(s_root_level, s_timeframes_level, "Graph");
+
+    for (int i = 0; i < TIMEFRAME_COUNT; i++) {
+        action_menu_level_add_action(s_timeframes_level, TIMEFRAMES[i], action_performed_callback, (void *)i);
+    }
+}
+
+// -------------------------------------------------------------------------
 // Button handlers — UP/DOWN cycle timeframes
 // -------------------------------------------------------------------------
 
@@ -219,6 +220,22 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
 
 static void click_config_provider(void *context) {
     window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
+}
+
+// -------------------------------------------------------------------------
+// Tick handler — updates the info bar every minute
+// -------------------------------------------------------------------------
+
+static void update_time() {
+    time_t temp = time(NULL);
+    struct tm *tick_time = localtime(&temp);
+
+    info_layer_set_data(s_info_layer, tick_time, s_current_quote.marketHours, s_current_quote.position + 1, s_current_quote.size);
+    layer_mark_dirty(s_info_layer);
+}
+
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+    update_time();
 }
 
 // -------------------------------------------------------------------------
@@ -335,14 +352,10 @@ static void detail_window_load(Window *window) {
 #endif
 
     // -------------------------------------------------------------------------
-    // Status bar
+    // Info bar
     // -------------------------------------------------------------------------
 
-    s_status_bar_layer = status_bar_layer_create();
-    status_bar_layer_set_colors(s_status_bar_layer,
-        PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite),
-        PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
-    status_bar_layer_set_separator_mode(s_status_bar_layer, StatusBarLayerSeparatorModeDotted);
+    s_info_layer = info_layer_create(GRect(window_bounds.origin.x, window_bounds.origin.y, window_bounds.size.w, STATUS_BAR_LAYER_HEIGHT));
 
     // -------------------------------------------------------------------------
     // Segment 1 — symbol + price
@@ -408,7 +421,7 @@ static void detail_window_load(Window *window) {
     // Layer hierarchy
     // -------------------------------------------------------------------------
 
-    layer_add_child(window_layer, status_bar_layer_get_layer(s_status_bar_layer));
+    layer_add_child(window_layer, s_info_layer);
     layer_add_child(window_layer, text_layer_get_layer(s_symbol_layer));
     layer_add_child(window_layer, text_layer_get_layer(s_price_layer));
 #if defined(PBL_RECT)
@@ -417,11 +430,15 @@ static void detail_window_load(Window *window) {
     layer_add_child(window_layer, text_layer_get_layer(s_change_layer));
     layer_add_child(window_layer, s_graph_layer);
     // layer_add_child(window_layer, s_debug_divider_layer);
+
+    update_time();
 }
 
 static void detail_window_unload(Window *window) {
+    tick_timer_service_unsubscribe();
     layer_destroy(s_debug_divider_layer);
-    status_bar_layer_destroy(s_status_bar_layer);
+    info_layer_destroy(s_info_layer);
+    s_info_layer = NULL;
     text_layer_destroy(s_symbol_layer);
     text_layer_destroy(s_price_layer);
     text_layer_destroy(s_change_percent_layer);
@@ -451,6 +468,8 @@ void detail_window_init(int position) {
         .disappear = detail_window_disappear,
     });
     window_set_background_color(s_detail_window, PBL_IF_COLOR_ELSE(GColorBlack, GColorWhite));
+
+    tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 
     stocks_request_history(quote->symbol, TIMEFRAMES[s_timeframe_index]);
 
