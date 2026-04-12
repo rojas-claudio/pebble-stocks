@@ -38,6 +38,7 @@
       "Price",
       "Change",
       "ChangePercent",
+      "Hours",
       "Timeframe",
       "HistoryData",
       "HistoryDataSize",
