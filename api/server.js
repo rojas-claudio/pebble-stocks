@@ -68,6 +68,7 @@ app.get('/api/tickers/:ticker', async (req, res) => {
         ticker,
         price: doc.quote.price,
         change: doc.quote.change,
+        marketHours: doc.quote.marketHours,
         changePercent: doc.quote.changePercent,
       });
     }
@@ -87,6 +88,7 @@ app.get('/api/tickers/:ticker', async (req, res) => {
     res.json({
       ticker,
       price: doc.quote.price,
+      hours: doc.quote.marketHours,
       change: doc.quote.change,
       changePercent: doc.quote.changePercent,
     });

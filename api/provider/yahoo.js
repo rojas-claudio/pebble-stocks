@@ -16,6 +16,13 @@ const HISTORY_CONFIG = {
   '1Y':  { range: '1y',  interval: '1d',  ttl: 1440 },
 };
 
+const MARKET_HOURS = {
+    PRE: 0,
+    OPEN: 1,
+    POST: 2,
+    CLOSED: 3
+};
+
 async function yahooFetch(symbol, params) {
     const url = new URL(`${API_BASE}/${encodeURIComponent(symbol)}`);
     for (const [key, val] of Object.entries(params)) {
@@ -48,11 +55,21 @@ export async function getQuote(ticker) {
     const previousClose = meta.previousClose ?? meta.chartPreviousClose;
     const change = meta.regularMarketChange ?? (price - previousClose);
     const changePercent = meta.regularMarketChangePercent ?? (change / previousClose * 100);
+    var marketHours = MARKET_HOURS.CLOSED;
+    
+    for (var i = 0; i < meta.currentTradingPeriod.length; i++) {
+        var period = meta.currentTradingPeriod[i];
+        if (Date.now() >= period.start * 1000 && Date.now() < period.end * 1000) {
+            marketHours = i; // 0=pre, 1=open, 2=post
+            break;
+        }
+    }
 
     return {
         price,
         change,
         changePercent,
+        marketHours,
         high: meta.regularMarketDayHigh ?? null,
         low: meta.regularMarketDayLow ?? null,
         open: meta.regularMarketOpen ?? null,
