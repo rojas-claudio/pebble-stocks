@@ -57,9 +57,14 @@ export async function getQuote(ticker) {
     const changePercent = meta.regularMarketChangePercent ?? (change / previousClose * 100);
     var marketHours = MARKET_HOURS.CLOSED;
     
-    for (var i = 0; i < meta.currentTradingPeriod.length; i++) {
-        var period = meta.currentTradingPeriod[i];
-        if (Date.now() >= period.start * 1000 && Date.now() < period.end * 1000) {
+    const tradingPeriods = [
+        meta.currentTradingPeriod.pre,
+        meta.currentTradingPeriod.regular,
+        meta.currentTradingPeriod.post,
+    ];
+    for (var i = 0; i < tradingPeriods.length; i++) {
+        var period = tradingPeriods[i];
+        if (period && Date.now() >= period.start * 1000 && Date.now() < period.end * 1000) {
             marketHours = i; // 0=pre, 1=open, 2=post
             break;
         }
