@@ -88,7 +88,7 @@ app.get('/api/tickers/:ticker', async (req, res) => {
     res.json({
       ticker,
       price: doc.quote.price,
-      hours: doc.quote.marketHours,
+      marketHours: doc.quote.marketHours,
       change: doc.quote.change,
       changePercent: doc.quote.changePercent,
     });
