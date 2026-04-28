@@ -28,6 +28,15 @@
         ]
     },
     {
+        "type": "section",
+        "items": [
+            {
+                "type": "text",
+                "defaultValue": "You'll need to restart the app for changes to take effect."
+            }
+        ]
+    },
+    {
         "type": "submit",
         "defaultValue": "Save"
     }
