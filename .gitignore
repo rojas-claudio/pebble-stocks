@@ -11,6 +11,8 @@ old/
 package-lock.json
 .lock*
 
+store/
+
 # os files
 .DS_Store
 .DS_Store?
