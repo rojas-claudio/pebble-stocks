@@ -97,9 +97,15 @@ const char *detail_window_get_symbol(void) {
     return s_current_quote.symbol;
 }
 
+// -------------------------------------------------------------------------
+// Data Helpers
+// -------------------------------------------------------------------------
+
 static void refresh_history(void) {
     StockData_t *live = stocks_get_quote((int)s_current_quote.position);
     if (live) s_current_quote = *live;
+
+    if (!s_current_quote.history) stocks_request_history(s_current_quote.symbol, TIMEFRAMES[s_timeframe_index]);
 
     if (s_graph_layer && s_current_quote.history && s_current_quote.history->count > 0) {
         graph_layer_set_data(s_graph_layer,
@@ -139,6 +145,19 @@ static void on_quote_updated(int position) {
 
 static void on_history_updated(int position) {
     if (position != (int)s_current_quote.position) return;
+    refresh_history();
+}
+
+static void change_quote(int position) {
+    if (position < 0 || position >= s_current_quote.size) return;
+    StockData_t *quote = stocks_get_quote(position);
+    if (!quote) return;
+    s_current_quote = *quote;
+    
+    snprintf(s_symbol_buffer, sizeof(s_symbol_buffer), "%s", s_current_quote.symbol);
+    text_layer_set_text(s_symbol_layer, s_symbol_buffer);
+
+    refresh_quote();
     refresh_history();
 }
 
@@ -192,7 +211,23 @@ static void init_action_menu(void) {
 }
 
 // -------------------------------------------------------------------------
-// Button handlers — UP/DOWN cycle timeframes
+// Tick handler — updates the info bar every minute
+// -------------------------------------------------------------------------
+
+static void update_time() {
+    time_t temp = time(NULL);
+    struct tm *tick_time = localtime(&temp);
+
+    info_layer_set_data(s_info_layer, tick_time, s_current_quote.marketHours, s_current_quote.position + 1, s_current_quote.size);
+    layer_mark_dirty(s_info_layer);
+}
+
+static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
+    update_time();
+}
+
+// -------------------------------------------------------------------------
+// Button handlers
 // -------------------------------------------------------------------------
 
 static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
@@ -218,24 +253,20 @@ static void select_click_handler(ClickRecognizerRef recognizer, void *context) {
     s_action_menu = action_menu_open(&config);
 }
 
+static void up_click_handler(ClickRecognizerRef recognizer, void *context) {
+    change_quote((int)s_current_quote.position - 1);
+    update_time();
+}
+
+static void down_click_handler(ClickRecognizerRef recognizer, void *context) {
+    change_quote((int)s_current_quote.position + 1);
+    update_time();
+}
+
 static void click_config_provider(void *context) {
     window_single_click_subscribe(BUTTON_ID_SELECT, select_click_handler);
-}
-
-// -------------------------------------------------------------------------
-// Tick handler — updates the info bar every minute
-// -------------------------------------------------------------------------
-
-static void update_time() {
-    time_t temp = time(NULL);
-    struct tm *tick_time = localtime(&temp);
-
-    info_layer_set_data(s_info_layer, tick_time, s_current_quote.marketHours, s_current_quote.position + 1, s_current_quote.size);
-    layer_mark_dirty(s_info_layer);
-}
-
-static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
-    update_time();
+    window_single_click_subscribe(BUTTON_ID_UP, up_click_handler);
+    window_single_click_subscribe(BUTTON_ID_DOWN, down_click_handler);
 }
 
 // -------------------------------------------------------------------------
@@ -456,8 +487,9 @@ void detail_window_init(int position) {
     if (!quote) return;
 
     s_current_quote   = *quote;
-    s_timeframe_index = 2; // default to 1M
-    s_timeframe_index = persist_read_int(s_timeframe_index_key);
+    s_timeframe_index = persist_exists(s_timeframe_index_key)
+        ? persist_read_int(s_timeframe_index_key)
+        : 2;
 
     s_detail_window = window_create();
     window_set_click_config_provider(s_detail_window, click_config_provider);
