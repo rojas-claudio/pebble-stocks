@@ -1,9 +1,9 @@
 {
   "name": "stocks",
-  "author": "itsthered1",
+  "author": "Claudio Rojas",
   "version": "1.0.0",
   "keywords": [
-    "pebble-app"
+    "stocks"
   ],
   "private": true,
   "dependencies": {
