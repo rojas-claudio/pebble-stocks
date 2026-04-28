@@ -27,6 +27,7 @@ static void info_layer_update_proc(Layer *layer, GContext *ctx) {
         if (x % 3 == 0) graphics_draw_pixel(ctx, GPoint(x, bounds.size.h - 1));
     }
 
+    graphics_context_set_text_color(ctx, PBL_IF_COLOR_ELSE(GColorWhite, GColorBlack));
     if (d->has_time) {
         static char time_buffer[16];
         strftime(time_buffer, sizeof(time_buffer), "%l:%M %p", &d->time);
