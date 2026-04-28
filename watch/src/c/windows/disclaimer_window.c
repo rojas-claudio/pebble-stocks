@@ -14,7 +14,7 @@
 
 static const char *DISCLAIMER_TEXT =
     "FOR INFORMATIONAL USE ONLY\n\n"
-    "Data is delayed a minimum of 5 minutes and may be inaccurate or incomplete. "
+    "Data is delayed a minimum of 2 minutes and may be inaccurate or incomplete. "
     "Prices are sourced from third-party providers and are not guaranteed.\n\n"
     "NOT FINANCIAL ADVICE\n\n"
     "This app is for informational purposes only. Do not make investment or trading "
