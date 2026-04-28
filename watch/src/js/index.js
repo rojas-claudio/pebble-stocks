@@ -43,10 +43,14 @@ function getWatchlist() {
         if (raw) settings = JSON.parse(raw);
     } catch (e) {}
 
+    var seen = {};
     var list = [];
     for (var i = 1; i <= 10; i++) {
         var val = ((settings['Ticker_' + i] || '') + '').trim().toUpperCase();
-        if (val) list.push(val);
+        if (val && !seen[val]) {
+            seen[val] = true;
+            list.push(val);
+        }
     }
     return list.length ? list : DEFAULT_WATCHLIST;
 }
@@ -123,7 +127,7 @@ function loadWatchlist(watchlist) {
                 'Price': err ? 0 : Math.round(quote.price * 100),
                 'Change': err ? 0 : Math.round(quote.change * 100),
                 'ChangePercent': err ? 0 : Math.round(quote.changePercent * 100),
-                'Hours': err ? MARKETHOURS.CLOSED : quote.marketHours,
+                'Hours': err ? MARKETHOURS.CLOSED : (quote.marketHours != null ? quote.marketHours : MARKETHOURS.CLOSED),
                 'LastUpdated': err ? 0 : Math.floor(Date.now() / 1000)
             };
 
