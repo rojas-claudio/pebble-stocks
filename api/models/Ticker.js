@@ -30,7 +30,7 @@ const quoteSchema = new mongoose.Schema({
   changePercent: Number,
   high: Number,
   low: Number,
-  marketHours: Number, // 0 = closed, 1 = pre-market, 2 = regular, 3 = post-market
+  marketHours: Number, // 0 = pre-market, 1 = regular, 2 = post-market, 3 = closed
   previousClose: Number,
   updatedAt: { type: Date, default: null }
 }, { _id: false });
