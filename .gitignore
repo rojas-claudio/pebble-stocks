@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 
 .vscode/
 .claude/
@@ -8,7 +10,6 @@ build/
 
 old/
 
-package-lock.json
 .lock*
 
 store/
