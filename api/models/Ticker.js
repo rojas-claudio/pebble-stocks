@@ -37,6 +37,10 @@ const quoteSchema = new mongoose.Schema({
 
 const tickerSchema = new mongoose.Schema({
   ticker: { type: String, required: true, unique: true, uppercase: true, index: true },
+  // Last time a client asked for this ticker. The cron refresh only re-fetches
+  // recently-requested symbols, so entries nobody looks at fall out of rotation
+  // instead of being refreshed forever. Indexed: refresh filters and sorts on it.
+  lastAccessedAt: { type: Date, default: Date.now, index: true },
   quote: { type: quoteSchema, default: () => ({}) },
   history: {
     type: Map,

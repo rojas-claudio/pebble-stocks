@@ -65,10 +65,31 @@ const HISTORY_TTL = {
   '1Y':  1440,
 };
 
+// Refresh only tickers somebody has actually asked for recently, and never do
+// more than MAX_TICKERS of them in one run — the quote endpoint is public, so
+// without these bounds anyone can permanently enlarge the cron's workload.
+const REFRESH_MAX_AGE_DAYS = 7;
+const REFRESH_MAX_TICKERS  = 250;
+const REFRESH_CONCURRENCY  = 5;
+
+// Don't write lastAccessedAt on every single request — once an hour is plenty
+// of resolution for a 7-day window.
+const TOUCH_INTERVAL_MS = 60 * 60 * 1000;
+
 function isFresh(updatedAt, ttlMinutes) {
   if (!updatedAt) return false;
   const age = (Date.now() - new Date(updatedAt).getTime()) / 1000 / 60;
   return age < ttlMinutes;
+}
+
+// Mark a ticker as recently requested. Fire and forget: keeping the refresh
+// window accurate is never worth delaying or failing a response to the watch.
+function touch(ticker, lastAccessedAt) {
+  if (lastAccessedAt && Date.now() - new Date(lastAccessedAt).getTime() < TOUCH_INTERVAL_MS) {
+    return;
+  }
+  Ticker.updateOne({ ticker }, { $set: { lastAccessedAt: new Date() } })
+    .catch(err => console.error(`touch failed for ${ticker}:`, err.message));
 }
 
 //
@@ -84,6 +105,7 @@ app.get('/api/tickers/:ticker', async (req, res) => {
     let doc = await Ticker.findOne({ ticker });
 
     if (doc?.quote && isFresh(doc.quote.updatedAt, QUOTE_TTL)) {
+      touch(ticker, doc.lastAccessedAt);
       return res.json({
         ticker,
         price: doc.quote.price,
@@ -101,7 +123,7 @@ app.get('/api/tickers/:ticker', async (req, res) => {
 
     doc = await Ticker.findOneAndUpdate(
       { ticker },
-      { quote },
+      { quote, lastAccessedAt: new Date() },
       { upsert: true, returnDocument: 'after' }
     );
 
@@ -132,6 +154,7 @@ app.get('/api/tickers/:ticker/history', async (req, res) => {
     const cached = doc?.history?.get(range);
 
     if (cached?.data?.length && isFresh(cached.updatedAt, HISTORY_TTL[range])) {
+      touch(ticker, doc.lastAccessedAt);
       return res.json({ ticker, range, data: cached.data });
     }
 
@@ -147,7 +170,7 @@ app.get('/api/tickers/:ticker/history', async (req, res) => {
     // Cache in MongoDB (fire and forget)
     Ticker.findOneAndUpdate(
       { ticker },
-      { $set: { [`history.${range}`]: { data, updatedAt: new Date() } } },
+      { $set: { [`history.${range}`]: { data, updatedAt: new Date() }, lastAccessedAt: new Date() } },
       { upsert: true }
     ).catch(err => console.error(`Cache write failed for ${ticker}/${range}:`, err.message));
   } catch (err) {
@@ -192,21 +215,43 @@ app.post('/api/refresh', async (req, res) => {
     return res.json({ skipped: true, reason: 'market closed' });
   }
 
-  const tickers = await Ticker.find({}).select('ticker').lean();
-  if (!tickers.length) return res.json({ refreshed: 0 });
+  // Most-recently-requested first, so the cap sheds cold tickers rather than warm ones
+  const cutoff = new Date(Date.now() - REFRESH_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
+  const tickers = await Ticker.find({ lastAccessedAt: { $gte: cutoff } })
+    .sort({ lastAccessedAt: -1 })
+    .limit(REFRESH_MAX_TICKERS)
+    .select('ticker')
+    .lean();
 
-  const results = await Promise.allSettled(
-    tickers.map(async ({ ticker }) => {
-      const quote = await getQuote(ticker);
-      if (quote) await Ticker.findOneAndUpdate({ ticker }, { quote });
-      return ticker;
-    })
-  );
+  if (!tickers.length) return res.json({ refreshed: 0, failed: 0 });
 
-  const ok  = results.filter(r => r.status === 'fulfilled').map(r => r.value);
-  const err = results.filter(r => r.status === 'rejected').map(r => r.reason?.message);
-  console.log(`[refresh] ${ok.length} ok, ${err.length} failed`);
-  res.json({ refreshed: ok.length, failed: err.length });
+  // Batched rather than all at once: Yahoo sees every request from a single
+  // egress IP, and a wide parallel burst is what gets that IP rate-limited.
+  let ok = 0;
+  let failed = 0;
+
+  for (let i = 0; i < tickers.length; i += REFRESH_CONCURRENCY) {
+    const batch = tickers.slice(i, i + REFRESH_CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async ({ ticker }) => {
+        const quote = await getQuote(ticker);
+        if (quote) await Ticker.findOneAndUpdate({ ticker }, { quote });
+        return ticker;
+      })
+    );
+
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        ok++;
+      } else {
+        failed++;
+        console.error('[refresh] failed:', r.reason?.message);
+      }
+    }
+  }
+
+  console.log(`[refresh] ${ok} ok, ${failed} failed (of ${tickers.length} due)`);
+  res.json({ refreshed: ok, failed });
 });
 
 app.get('/', (req, res) => {
