@@ -18,16 +18,22 @@
  */
 
 /**
- * api.js — Calls the local Pebble Stocks API server.
+ * api.js — Calls the Pebble Stocks API server.
  *
- * Set BASE_URL to the server's address on your local network so the phone
- * can reach it (the phone cannot use "localhost" to reach a server on your
- * computer — use the machine's LAN IP instead).
+ * BASE_URL below is a PLACEHOLDER and must be changed before you build.
+ * 127.0.0.1 is the phone's own loopback address, so as shipped this reaches
+ * nothing and every request fails with "Network error".
+ *
+ * Set it to wherever your API is deployed. For local testing use your
+ * machine's LAN address (e.g. http://192.168.1.20:3000) — the phone cannot
+ * reach your computer through localhost or 127.0.0.1. Note that iOS and
+ * Android both block plaintext http:// unless the phone is configured to
+ * allow it, so a deployed https:// endpoint is the path of least resistance.
  *
  * All callbacks follow the Node convention: callback(err, data).
  */
 
-var BASE_URL = 'https://stocks-api.rojas.tech';
+var BASE_URL = 'http://127.0.0.1:3000';
 
 function fetchJSON(url, callback) {
     var xhr = new XMLHttpRequest();

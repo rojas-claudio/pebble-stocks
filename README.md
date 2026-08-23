@@ -25,6 +25,7 @@ Pebble through Pebble Time 2.
   - [Endpoints](#endpoints)
   - [Caching](#caching)
   - [Deploying](#deploying)
+  - [Pointing the watch at your server](#pointing-the-watch-at-your-server)
 - [Message protocol](#message-protocol)
 - [Known gaps](#known-gaps)
 - [Disclaimer](#disclaimer)
@@ -92,6 +93,11 @@ pebble build
 pebble install --emulator basalt     # or --phone <ip> for a real watch
 pebble logs --emulator basalt        # PKJS + watch logs
 ```
+
+> **Before building**, change the placeholder API address in `watch/src/js/api.js` — see
+> [Pointing the watch at your server](#pointing-the-watch-at-your-server). An unmodified
+> build cannot reach any server.
+
 
 Target platforms built by default: `aplite`, `basalt`, `diorite`, `chalk`, `emery`,
 `flint`, `gabbro`.
@@ -216,14 +222,26 @@ which is what scopes the cron refresh to symbols actually in use.
 and `CRON_SECRET` as project environment variables, then point a scheduler at
 `POST /api/refresh` on a 5-minute cadence to match the quote TTL.
 
-The watch's API base URL is hard-coded in `watch/src/js/api.js`:
+### Pointing the watch at your server
+
+**You must edit one line before building.** The watch's API base URL is hard-coded in
+`watch/src/js/api.js`, and what ships in this repo is a placeholder:
 
 ```js
-var BASE_URL = 'https://stocks-api.rojas.tech';
+var BASE_URL = 'http://127.0.0.1:3000';
 ```
 
-Change it to your own deployment before building. For local testing, use your machine's
-LAN IP — the phone cannot reach `localhost`.
+`127.0.0.1` is the *phone's* own loopback address, so an unmodified build reaches nothing
+and every request fails with `Network error` — the watch shows the connection error screen.
+Change it to wherever your API lives.
+
+For local testing, use your machine's LAN address (`http://192.168.1.20:3000` or similar).
+The phone cannot reach your computer via `localhost` or `127.0.0.1`, and both iOS and
+Android block plaintext `http://` from PebbleKit JS unless the phone is configured to allow
+it — so a deployed `https://` endpoint is usually the least painful option.
+
+Because this is a tracked file, changing it leaves a modification in your working tree.
+Take care not to commit your own endpoint.
 
 ## Message protocol
 
@@ -250,8 +268,9 @@ Things a contributor will trip over:
 - **`store/` is gitignored**, so the App Store screenshots and icons are not in the repo.
   Un-ignore it if you want them rendered in this README.
 - **Watchlist changes need an app restart** — the JS reads Clay settings once at launch.
-- **The API endpoint is hard-coded** in `watch/src/js/api.js`, so pointing a build at your
-  own server means editing tracked source. Take care not to commit that change.
+- **The API endpoint is hard-coded** in `watch/src/js/api.js` and ships as an unusable
+  placeholder, so every build starts with an edit to a tracked file. There is no build-time
+  or runtime override; adding one would mean a Clay setting or a generated config module.
 - **Any symbol Yahoo recognises still creates a cached document.** Refresh is now bounded
   (see [Endpoints](#endpoints)), so the recurring cost is capped, but nothing stops the
   collection itself from growing. Add an allowlist or a TTL index if that matters to you.
