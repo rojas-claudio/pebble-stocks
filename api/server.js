@@ -17,6 +17,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+import crypto from 'node:crypto';
 import express from 'express';
 import mongoose from 'mongoose';
 import Ticker from './models/Ticker.js';
@@ -164,10 +165,25 @@ function isMarketOpen() {
   return minutes >= 570 && minutes < 960; // 9:30–16:00
 }
 
+// Constant-time comparison so a wrong secret leaks nothing through response timing
+function secretMatches(provided, expected) {
+  const a = Buffer.from(String(provided ?? ''));
+  const b = Buffer.from(String(expected));
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 // POST /api/refresh — refreshes all cached quotes, called by cron
 app.post('/api/refresh', async (req, res) => {
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers['x-cron-secret'] !== secret) {
+
+  // Fail closed: an unset secret disables the endpoint rather than opening it
+  if (!secret) {
+    console.error('[refresh] CRON_SECRET is not set — refusing to refresh');
+    return res.status(503).json({ error: 'Refresh is not configured' });
+  }
+
+  if (!secretMatches(req.headers['x-cron-secret'], secret)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
