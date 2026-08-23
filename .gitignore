@@ -8,6 +8,9 @@
 node_modules/
 build/
 
+# Release endpoint for watch/release.sh — never commit a live endpoint.
+watch/.release-endpoint
+
 old/
 
 .lock*

@@ -69,6 +69,7 @@ watch/          Pebble app
     clay-config.json  settings screen
   resources/      menu icon, error PDC animation
   wscript         waf build script (stock Pebble SDK template)
+  release.sh      builds against the real endpoint, restores the placeholder after
 
 api/            Node/Express caching API
   server.js       routes, Mongo connection, cron refresh
@@ -242,6 +243,23 @@ it — so a deployed `https://` endpoint is usually the least painful option.
 
 Because this is a tracked file, changing it leaves a modification in your working tree.
 Take care not to commit your own endpoint.
+
+#### Release builds
+
+`watch/release.sh` exists so release builds don't depend on remembering that. It swaps in
+the real endpoint, builds, and restores the placeholder on every exit path — success,
+build failure, or Ctrl-C — so the live endpoint never survives in the working tree:
+
+```bash
+STOCKS_API_BASE=https://api.example.com ./release.sh
+# or write the endpoint once to watch/.release-endpoint (gitignored)
+./release.sh
+```
+
+It refuses to build with no endpoint configured, with a malformed one, or with the
+placeholder itself, and it verifies the endpoint actually landed in
+`build/pebble-js-app.js` before reporting success — the bundle is what ships, so that is
+what gets checked.
 
 ## Message protocol
 
