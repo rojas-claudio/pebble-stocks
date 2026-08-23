@@ -1,6 +1,6 @@
 {
   "name": "pebble-stocks-api",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Caching API that serves stock quotes and price history to the Pebble Stocks watch app.",
   "type": "module",
   "main": "start.js",
