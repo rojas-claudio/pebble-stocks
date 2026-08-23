@@ -8,8 +8,8 @@
     "start": "node --env-file=.env start.js",
     "dev": "node --env-file=.env --watch start.js"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Claudio Rojas",
+  "license": "AGPL-3.0-only",
   "dependencies": {
     "@agendajs/mongo-backend": "^3.1.0",
     "agenda": "^6.2.1",
