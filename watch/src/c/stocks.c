@@ -276,6 +276,7 @@ static void stocks_init(void) {
 }
 
 int main(void) {
+    app_touch_navigation_enable(true);
     stocks_init();
     app_event_loop();
     stocks_deinit();
