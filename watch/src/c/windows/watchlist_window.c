@@ -58,6 +58,8 @@ static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex 
     snprintf(title, sizeof(title), "%s", quote->symbol);
     snprintf(subtitle, sizeof(subtitle), "$%s", quote->price);
 
+
+
 #ifdef PBL_COLOR
     GColor bg_color;
     if (quote->change[0] != '-' && quote->change[0] != '0') {
@@ -76,10 +78,12 @@ static void draw_row_callback(GContext *ctx, const Layer *cell_layer, MenuIndex 
 }
 
 static int16_t get_cell_height_callback(MenuLayer *menu_layer, MenuIndex *cell_index, void *data) {
-#if PBL_PLATFORM_EMERY || PBL_PLATFORM_GABBRO
-    return 53;
+#if PBL_PLATFORM_GABBRO
+    return 72;
+#elif PBL_PLATFORM_EMERY
+    return 67;
 #else
-    return 42;
+    return 50;
 #endif
 }
 
@@ -105,9 +109,21 @@ static void watchlist_window_disappear(Window *window) {
 
 static void watchlist_window_load(Window *window) {
     Layer *window_layer = window_get_root_layer(window);
-    GRect bounds = layer_get_bounds(window_layer);
 
+#if PBL_PLATFORM_GABBRO
+    s_tickers_layer = menu_layer_create(GRect(0, 15, 260, 230));
+    menu_layer_set_center_focused(s_tickers_layer, true);
+#elif PBL_PLATFORM_EMERY
+    const GRect bounds = layer_get_bounds(window_layer);
     s_tickers_layer = menu_layer_create(bounds);
+#elif PBL_ROUND
+    s_tickers_layer = menu_layer_create(GRect(0, 15, 180, 150));
+    menu_layer_set_center_focused(s_tickers_layer, true);
+#elif PBL_RECT
+    GRect bounds = layer_get_bounds(window_layer);
+    s_tickers_layer = menu_layer_create(bounds);
+#endif
+
     menu_layer_set_click_config_onto_window(s_tickers_layer, window);
 
 #ifdef PBL_COLOR
